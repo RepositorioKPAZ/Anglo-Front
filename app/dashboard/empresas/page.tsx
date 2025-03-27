@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState } from "react";
-import { DataTable } from "@/components/tables/data-table";
-import { empresasColumns } from "@/components/tables/columns/empresas-columns";
-import { User } from "@/lib/utils/excel-reader";
-import Spinner from "@/components/Spinner";
+import React, { useEffect, useState } from 'react';
+import { DataTable } from '@/components/tables/data-table';
+import { empresasColumns } from '@/components/tables/columns/empresas-columns';
+import { User } from '@/lib/utils/excel-reader';
+import Spinner from '@/components/spinner';
 
 export default function EmpresasPage() {
   const [empresasData, setEmpresasData] = useState<User[]>([]);
@@ -14,18 +14,18 @@ export default function EmpresasPage() {
   useEffect(() => {
     async function fetchEmpresas() {
       try {
-        const response = await fetch("/api/empresas");
+        const response = await fetch('/api/empresas');
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || "Error al cargar los datos");
+          throw new Error(errorData.error || 'Error al cargar los datos');
         }
 
         const data = await response.json();
         setEmpresasData(data);
       } catch (err) {
-        console.error("Error fetching empresas:", err);
-        setError(err instanceof Error ? err.message : "Error desconocido");
+        console.error('Error fetching empresas:', err);
+        setError(err instanceof Error ? err.message : 'Error desconocido');
       } finally {
         setIsLoading(false);
       }

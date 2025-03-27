@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState } from "react";
-import { DataTable } from "@/components/tables/data-table";
-import { postulacionesNominasColumns } from "@/components/tables/columns/postulaciones-nominas-columns";
-import { NominaRow } from "@/lib/utils/excel-reader";
-import { Plus } from "lucide-react";
-import Spinner from "@/components/Spinner";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import React, { useEffect, useState } from 'react';
+import { DataTable } from '@/components/tables/data-table';
+import { postulacionesNominasColumns } from '@/components/tables/columns/postulaciones-nominas-columns';
+import { NominaRow } from '@/lib/utils/excel-reader';
+import { Plus } from 'lucide-react';
+import Spinner from '@/components/spinner';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 export default function NominasPage() {
   const [nominasData, setNominasData] = useState<NominaRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -16,18 +16,18 @@ export default function NominasPage() {
   useEffect(() => {
     async function fetchNominas() {
       try {
-        const response = await fetch("/api/nominas");
+        const response = await fetch('/api/nominas');
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || "Error al cargar los datos");
+          throw new Error(errorData.error || 'Error al cargar los datos');
         }
 
         const data = await response.json();
         setNominasData(data);
       } catch (err) {
-        console.error("Error fetching nominas:", err);
-        setError(err instanceof Error ? err.message : "Error desconocido");
+        console.error('Error fetching nominas:', err);
+        setError(err instanceof Error ? err.message : 'Error desconocido');
       } finally {
         setIsLoading(false);
       }
@@ -75,7 +75,7 @@ export default function NominasPage() {
           adjuntar documentación necesaria y filtrar la información según los
           criterios que requieras para facilitar tu trabajo.
         </p>
-      </div>{" "}
+      </div>{' '}
       <div className="flex pb-4">
         <Button asChild variant="outline">
           <Link href="/carga-masiva">

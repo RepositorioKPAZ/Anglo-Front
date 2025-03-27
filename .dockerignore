@@ -1,0 +1,21 @@
+# dependencias y builds
+node_modules
+.next
+.vscode
+build
+
+# control de versiones
+.git
+.gitignore
+
+# archivos temporales y logs
+*.log
+*.pem
+*.tsbuildinfo
+
+# entornos
+.env*
+.vercel
+
+# cobertura
+coverage
