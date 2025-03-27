@@ -33,7 +33,7 @@ export default async function Login(props: { searchParams: Promise<Message> }) {
       <div className="flex flex-col gap-2 [&>input]:mb-3 mt-8">
         <Label htmlFor="email">Email</Label>
         <Input name="email" placeholder="tu@email.com" required />
-        <div className="flex justify-between items-center">
+        {/* <div className="flex justify-between items-center">
           <Label htmlFor="password">Contraseña</Label>
           <Link
             className="text-xs text-foreground underline"
@@ -41,7 +41,7 @@ export default async function Login(props: { searchParams: Promise<Message> }) {
           >
             Olvidaste tu contraseña?
           </Link>
-        </div>
+        </div> */}
         <Input
           type="password"
           name="password"

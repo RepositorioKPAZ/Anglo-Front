@@ -81,7 +81,7 @@ function PasswordManager({
     setIsChanging(true);
     setError(null);
     try {
-      const response = await fetch("/api/empresas/password", {
+      const response = await fetch("/api/dashboard/empresas/password", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -193,7 +193,7 @@ function DeleteButton({
 
     setIsDeleting(true);
     try {
-      const response = await fetch("/api/empresas", {
+      const response = await fetch("/api/dashboard/empresas", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",

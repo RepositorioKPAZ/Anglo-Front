@@ -80,6 +80,7 @@ export function DataTable<TData, TValue>({
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState({});
   const [pageSize, setPageSize] = useState(10);
+  const [pageIndex, setPageIndex] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newCompany, setNewCompany] = useState({
     Rut: "",
@@ -103,6 +104,13 @@ export function DataTable<TData, TValue>({
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
+    onPaginationChange: (updater) => {
+      const newState =
+        typeof updater === "function"
+          ? updater(table.getState().pagination)
+          : updater;
+      setPageIndex(newState.pageIndex);
+    },
     state: {
       sorting,
       columnFilters,
@@ -110,7 +118,7 @@ export function DataTable<TData, TValue>({
       rowSelection,
       pagination: {
         pageSize: pageSize,
-        pageIndex: 0,
+        pageIndex: pageIndex,
       },
     },
   });
@@ -168,7 +176,7 @@ export function DataTable<TData, TValue>({
             <div className="flex items-center space-x-2">
               <div>Mostrar</div>
               <select
-                className="border rounded px-2 py-1"
+                className="border rounded px-2 py-1 bg-white"
                 value={pageSize}
                 onChange={(e) => {
                   const newSize = parseInt(e.target.value);
@@ -350,7 +358,7 @@ export function DataTable<TData, TValue>({
         </div>
 
         {searchKey && (
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center justify-end space-x-2 pe-1 w-full">
             <div>Buscar:</div>
             <Input
               placeholder={searchPlaceholder}
@@ -360,7 +368,7 @@ export function DataTable<TData, TValue>({
               onChange={(event) =>
                 table.getColumn(searchKey)?.setFilterValue(event.target.value)
               }
-              className="max-w-sm"
+              className="max-w-md"
             />
           </div>
         )}
