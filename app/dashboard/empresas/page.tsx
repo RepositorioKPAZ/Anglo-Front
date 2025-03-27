@@ -14,7 +14,7 @@ export default function EmpresasPage() {
   useEffect(() => {
     async function fetchEmpresas() {
       try {
-        const response = await fetch("/api/empresas");
+        const response = await fetch("/api/dashboard/empresas");
 
         if (!response.ok) {
           const errorData = await response.json();

@@ -14,6 +14,7 @@ import {
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import DocumentStatusCell from "@/components/DocumentStatusCell";
 
 // Helper function to create consistent column definitions
 function createColumn(
@@ -58,7 +59,20 @@ const formatCurrency = (value: number) => {
 };
 
 export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
-  // createColumn("Nro", "N°", "text-center w-12"),
+  {
+    accessorKey: "document",
+    header: ({ column }: { column: Column<NominaRow, unknown> }) => {
+      return <div className="text-center">Documento</div>;
+    },
+    cell: ({ row }: { row: Row<NominaRow> }) => {
+      const rowId = row.original.Rut as string;
+      return <DocumentStatusCell rowId={rowId} isAdmin={true} />;
+    },
+    enableHiding: true,
+    meta: {
+      label: "Documento",
+    },
+  },
   {
     accessorKey: "edit",
     header: ({ column }: { column: Column<NominaRow, unknown> }) => {
@@ -94,46 +108,20 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
                     <div className="text-base font-medium pb-4 text-primary">
                       Documento Adjunto
                     </div>
-                    <form
-                      action=""
-                      className="flex gap-4 items-start justify-start"
-                    >
-                      <div className="flex flex-col gap-2 flex-1">
-                        <Input
-                          id="file-upload"
-                          type="file"
-                          className="cursor-pointer bg-background"
-                          accept=".pdf,.doc,.docx,.xls,.xlsx"
+                    <div className="flex flex-col gap-4">
+                      {row.original.Rut && (
+                        <DocumentStatusCell
+                          rowId={row.original.Rut}
+                          isAdmin={true}
+                          className="items-start justify-start"
                         />
-                        <p className="text-xs text-muted-foreground">
-                          Formatos permitidos: PDF, DOC, DOCX, XLS, XLSX
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        type="submit"
-                        className="shrink-0"
-                      >
-                        Cargar
-                      </Button>
-                    </form>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Puede subir, ver o eliminar el documento PDF asociado a
+                        este registro. Solo se permiten archivos PDF.
+                      </p>
+                    </div>
                   </div>
-                  {/* <div className="bg-secondary/50 p-6 rounded-xl border shadow-sm">
-                    <div className="text-base font-medium pb-4 text-primary">
-                      Contraseña
-                    </div>
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-2">
-                        <div className="flex-1 relative">
-                          {row.original["Rut Empresa"] && (
-                            <PasswordManager
-                              rut={row.original["Rut Empresa"]}
-                            />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div> */}
                 </div>
               </div>
               <div className="flex flex-col gap-6 mt-8">

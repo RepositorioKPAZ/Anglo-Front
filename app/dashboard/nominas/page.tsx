@@ -15,7 +15,7 @@ export default function NominasPage() {
   useEffect(() => {
     async function fetchNominas() {
       try {
-        const response = await fetch("/api/nominas");
+        const response = await fetch("/api/dashboard/nominas");
 
         if (!response.ok) {
           const errorData = await response.json();

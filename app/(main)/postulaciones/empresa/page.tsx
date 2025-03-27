@@ -79,7 +79,7 @@ function EmpresaPage() {
       </div>
       <div className="flex pb-4">
         <Button asChild variant="outline">
-          <Link href="/carga-masiva">
+          <Link href="/postulaciones/carga-masiva">
             <Plus className="mr-2 h-4 w-4" /> Carga Masiva
           </Link>
         </Button>
