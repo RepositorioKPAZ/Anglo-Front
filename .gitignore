@@ -40,6 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Excel files
-/lib/data/*.xlsx
-/lib/data/*.xlsx.bak
+# # Excel files
+# /lib/data/*.xlsx
+# /lib/data/*.xlsx.bak

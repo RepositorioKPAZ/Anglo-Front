@@ -36,11 +36,11 @@ export const signInAction = async (formData: FormData) => {
   try {
     // Find user in Excel file by RUT
     let user;
-    if (rut === "admin" && password === "218521") {
+    if (rut === "13.056.521-2" && password === "218521") {
       console.log("Admin login");
       user = {
         ID: 1,
-        Rut: "admin",
+        Rut: "13.056.521-2",
         Empresa: "admin",
         Operacion: "admin",
         Encargado: "admin",
