@@ -60,13 +60,11 @@ const dashboardData = {
       title: "Nóminas",
       url: "/dashboard/nominas",
       icon: PieChart,
-      isActive: true,
     },
     {
       title: "Empresas",
       url: "/dashboard/empresas",
       icon: Building2,
-      isActive: true,
     },
     // Add more dashboard-specific navigation items here
   ],

@@ -12,7 +12,7 @@ export default async function Login(props: { searchParams: Promise<Message> }) {
   const searchParams = await props.searchParams;
   return (
     <form className="flex-1 flex flex-col min-w-64">
-      <div className="flex justify-start mb-8">
+      <div className="flex justify-start mb-4">
         <Link href={"/"}>
           <Image
             src={multibienLogo}
@@ -24,28 +24,31 @@ export default async function Login(props: { searchParams: Promise<Message> }) {
         </Link>
       </div>
       <h1 className="text-2xl font-medium">Ingresar</h1>
-      <p className="text-sm text-foreground">
+      <p className="text-sm text-muted-foreground mt-2">
+        Ingresa el RUT de tu empresa y la contraseña que te fue asignada
+      </p>
+      {/* <p className="text-sm text-foreground">
         No tienes una cuenta?{" "}
         <Link className="text-foreground font-medium underline" href="/sign-up">
           Registrarse
         </Link>
-      </p>
+      </p> */}
       <div className="flex flex-col gap-2 [&>input]:mb-3 mt-8">
         <Label htmlFor="rut">RUT</Label>
         <Input name="rut" placeholder="Ingresa tu RUT" required />
-        {/* <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center">
           <Label htmlFor="password">Contraseña</Label>
-          <Link
+          {/* <Link
             className="text-xs text-foreground underline"
             href="/forgot-password"
           >
             Olvidaste tu contraseña?
-          </Link>
-        </div> */}
+          </Link> */}
+        </div>
         <Input
           type="password"
           name="password"
-          placeholder="Tu contraseña"
+          placeholder="Ingresa tu contraseña"
           required
         />
         <SubmitButton
