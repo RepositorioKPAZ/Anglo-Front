@@ -1,14 +1,14 @@
-"use client";
-import React, { useEffect, useState } from "react";
-import { DataTable } from "@/components/tables/data-table";
+'use client';
+import React, { useEffect, useState } from 'react';
+import { DataTable } from '@/components/tables/data-table';
 import {
   PostulacionEmpresa,
   postulacionesEmpresaColumns,
-} from "@/components/tables/columns/postulaciones-empresa-columns";
-import Spinner from "@/components/Spinner";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { Plus } from "lucide-react";
+} from '@/components/tables/columns/postulaciones-empresa-columns';
+import Spinner from '@/components/spinner';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { Plus } from 'lucide-react';
 function EmpresaPage() {
   const [empresaData, setEmpresaData] = useState<PostulacionEmpresa[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -17,18 +17,18 @@ function EmpresaPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const response = await fetch("/api/postulaciones/empresa");
+        const response = await fetch('/api/postulaciones/empresa');
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || "Error al cargar los datos");
+          throw new Error(errorData.error || 'Error al cargar los datos');
         }
 
         const data = await response.json();
         setEmpresaData(data);
       } catch (err) {
-        console.error("Error fetching data:", err);
-        setError(err instanceof Error ? err.message : "Error desconocido");
+        console.error('Error fetching data:', err);
+        setError(err instanceof Error ? err.message : 'Error desconocido');
       } finally {
         setIsLoading(false);
       }
