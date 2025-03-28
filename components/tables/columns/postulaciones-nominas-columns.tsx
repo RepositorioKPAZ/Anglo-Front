@@ -80,6 +80,54 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
     },
     cell: ({ row }: { row: Row<NominaRow> }) => {
       const [dialogOpen, setDialogOpen] = useState(false);
+      const [editedData, setEditedData] = useState<Partial<NominaRow>>({});
+      const [isLoading, setIsLoading] = useState(false);
+
+      useEffect(() => {
+        if (dialogOpen) {
+          setEditedData(row.original);
+        }
+      }, [dialogOpen, row.original]);
+
+      const handleInputChange = (
+        key: keyof NominaRow,
+        value: string | number
+      ) => {
+        setEditedData((prev) => ({
+          ...prev,
+          [key]: value,
+        }));
+      };
+
+      const handleSave = async () => {
+        try {
+          setIsLoading(true);
+          const response = await fetch("/api/postulaciones/nominas", {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              rut: row.original.Rut,
+              updatedData: editedData,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error("Error al actualizar los datos");
+          }
+
+          toast.success("Datos actualizados correctamente");
+          setDialogOpen(false);
+          // Trigger a refresh of the table data
+          window.location.reload();
+        } catch (error) {
+          console.error("Error saving changes:", error);
+          toast.error("Error al actualizar los datos");
+        } finally {
+          setIsLoading(false);
+        }
+      };
 
       return (
         <div className="flex items-center justify-center space-x-2">
@@ -137,13 +185,51 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
                       <span className="text-sm font-medium text-primary">
                         {key}
                       </span>
-                      <span className="text-sm text-muted-foreground">
-                        {value !== null && typeof value === "object"
-                          ? JSON.stringify(value)
-                          : String(value)}
-                      </span>
+                      {key === "Rut" ? (
+                        <span className="text-sm text-muted-foreground">
+                          {value !== null && typeof value === "object"
+                            ? JSON.stringify(value)
+                            : String(value)}
+                        </span>
+                      ) : (
+                        <Input
+                          value={
+                            (editedData[key as keyof NominaRow] as string) || ""
+                          }
+                          onChange={(e) =>
+                            handleInputChange(
+                              key as keyof NominaRow,
+                              e.target.value
+                            )
+                          }
+                          className="mt-1"
+                        />
+                      )}
                     </div>
                   ))}
+                </div>
+                <div className="flex justify-end space-x-4 mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={() => setDialogOpen(false)}
+                    disabled={isLoading}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handleSave}
+                    disabled={isLoading}
+                    className="min-w-[100px]"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Guardando...
+                      </>
+                    ) : (
+                      "Guardar"
+                    )}
+                  </Button>
                 </div>
               </div>
             </DialogContent>

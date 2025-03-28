@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { companyService } from "@/lib/services/company-service";
+import path from "path";
+import fs from "fs";
+import XLSX from "xlsx";
+import { User } from "@/lib/utils/excel-reader";
 
 export async function GET() {
   try {
@@ -72,6 +76,58 @@ export async function DELETE(request: Request) {
     console.error("Error deleting empresa:", error);
     return NextResponse.json(
       { error: "Error al eliminar la empresa" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const { rut, updatedData } = await request.json();
+    
+    if (!rut || !updatedData) {
+      return NextResponse.json(
+        { error: "RUT y datos actualizados son requeridos" },
+        { status: 400 }
+      );
+    }
+
+    // Validate required fields
+    if (!updatedData.Empresa || !updatedData.Operacion || 
+        !updatedData.Encargado || !updatedData.Mail || !updatedData.Telefono) {
+      return NextResponse.json(
+        { error: "Todos los campos son requeridos" },
+        { status: 400 }
+      );
+    }
+
+    // Get current company data
+    const companies = await companyService.getAllCompanies();
+    const currentCompany = companies.find(c => c.Rut === rut);
+    
+    if (!currentCompany) {
+      return NextResponse.json(
+        { error: "Empresa no encontrada" },
+        { status: 404 }
+      );
+    }
+
+    // Update the company using the service
+    const updatedCompany = await companyService.updateCompany({
+      ...currentCompany,
+      ...updatedData,
+      Rut: rut // Ensure RUT is preserved
+    });
+    
+    return NextResponse.json({ 
+      success: true, 
+      message: "Datos actualizados correctamente",
+      company: updatedCompany
+    });
+  } catch (error) {
+    console.error("Error updating empresa:", error);
+    return NextResponse.json(
+      { error: "Error al actualizar la empresa" },
       { status: 500 }
     );
   }

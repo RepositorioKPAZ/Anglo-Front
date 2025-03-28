@@ -1,7 +1,14 @@
 "use client";
 
 import { ColumnDef, Column, Row } from "@tanstack/react-table";
-import { ArrowUpDown, Eye, EyeOff, Loader2, Pencil } from "lucide-react";
+import {
+  ArrowUpDown,
+  Eye,
+  EyeOff,
+  Loader2,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NominaRow } from "@/lib/utils/excel-reader";
 import { ReactNode } from "react";
@@ -10,6 +17,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
@@ -65,6 +74,82 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
     },
     cell: ({ row }: { row: Row<NominaRow> }) => {
       const [dialogOpen, setDialogOpen] = useState(false);
+      const [editedData, setEditedData] = useState<Partial<NominaRow>>({});
+      const [isLoading, setIsLoading] = useState(false);
+      const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+      const [isDeleting, setIsDeleting] = useState(false);
+
+      useEffect(() => {
+        if (dialogOpen) {
+          setEditedData(row.original);
+        }
+      }, [dialogOpen, row.original]);
+
+      const handleInputChange = (
+        key: keyof NominaRow,
+        value: string | number
+      ) => {
+        setEditedData((prev) => ({
+          ...prev,
+          [key]: value,
+        }));
+      };
+
+      const handleSave = async () => {
+        try {
+          setIsLoading(true);
+          const response = await fetch("/api/postulaciones/nominas", {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              rowId: row.original.Rut,
+              updatedData: editedData,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error("Error al actualizar los datos");
+          }
+
+          toast.success("Datos actualizados correctamente");
+          setDialogOpen(false);
+        } catch (error) {
+          console.error("Error saving changes:", error);
+          toast.error("Error al actualizar los datos");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      const handleDelete = async () => {
+        try {
+          setIsDeleting(true);
+          const response = await fetch("/api/postulaciones/nominas", {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              rowId: row.original.Rut,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error("Error al eliminar la fila");
+          }
+
+          toast.success("Fila eliminada correctamente");
+          setDeleteDialogOpen(false);
+          setDialogOpen(false);
+        } catch (error) {
+          console.error("Error deleting row:", error);
+          toast.error("Error al eliminar la fila");
+        } finally {
+          setIsDeleting(false);
+        }
+      };
 
       return (
         <div className="flex items-center justify-center space-x-2">
@@ -97,15 +182,92 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
                       <span className="text-sm font-medium text-primary">
                         {key}
                       </span>
-                      <span className="text-sm text-muted-foreground">
-                        {value !== null && typeof value === "object"
-                          ? JSON.stringify(value)
-                          : String(value)}
-                      </span>
+                      <Input
+                        value={
+                          (editedData[key as keyof NominaRow] as string) || ""
+                        }
+                        onChange={(e) =>
+                          handleInputChange(
+                            key as keyof NominaRow,
+                            e.target.value
+                          )
+                        }
+                        className="mt-1"
+                      />
                     </div>
                   ))}
                 </div>
+                <div className="flex justify-between items-center mt-6">
+                  <Button
+                    variant="destructive"
+                    onClick={() => setDeleteDialogOpen(true)}
+                    disabled={isLoading}
+                    className="flex items-center gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar
+                  </Button>
+                  <div className="flex space-x-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => setDialogOpen(false)}
+                      disabled={isLoading}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleSave}
+                      disabled={isLoading}
+                      className="min-w-[100px]"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Guardando...
+                        </>
+                      ) : (
+                        "Guardar"
+                      )}
+                    </Button>
+                  </div>
+                </div>
               </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>¿Estás seguro?</DialogTitle>
+                <DialogDescription>
+                  Esta acción no se puede deshacer. Se eliminará permanentemente
+                  la postulación de {row.original["Nombre Completo"]}.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setDeleteDialogOpen(false)}
+                  disabled={isDeleting}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="min-w-[100px]"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Eliminando...
+                    </>
+                  ) : (
+                    "Eliminar"
+                  )}
+                </Button>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
