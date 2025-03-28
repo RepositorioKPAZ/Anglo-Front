@@ -37,8 +37,9 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Download, Settings, Plus } from "lucide-react";
+import { Download, Settings, Plus, RefreshCw } from "lucide-react";
 import { exportToExcel } from "@/lib/utils/excel-export";
+import { generatePassword } from "@/lib/utils/password-utils";
 import {
   Dialog,
   DialogContent,
@@ -328,15 +329,10 @@ export function DataTable<TData, TValue>({
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Contraseña</label>
                     <Input
-                      type="password"
                       value={newCompany.Empresa_C}
-                      onChange={(e) =>
-                        setNewCompany({
-                          ...newCompany,
-                          Empresa_C: e.target.value,
-                        })
-                      }
-                      placeholder="Ingrese la contraseña"
+                      readOnly
+                      placeholder="La contraseña será generada automáticamente"
+                      className="flex-1"
                     />
                   </div>
                 </div>
