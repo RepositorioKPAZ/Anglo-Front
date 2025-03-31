@@ -3,7 +3,7 @@ import { companyService } from "@/lib/services/company-service";
 import path from "path";
 import fs from "fs";
 import XLSX from "xlsx";
-import { User } from "@/lib/utils/excel-reader";
+import { User } from "@/lib/types/user";
 
 export async function GET() {
   try {

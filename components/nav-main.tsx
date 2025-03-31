@@ -80,7 +80,13 @@ export function NavMain({
           ) : (
             <SidebarMenuItem key={item.title}>
               <Link href={item.url}>
-                <SidebarMenuButton tooltip={item.title} isActive={isActive}>
+                <SidebarMenuButton
+                  tooltip={item.title}
+                  // isActive={isActive}
+                  className={`hover:bg-gray-100 active:bg-gray-200 ${
+                    isActive ? "bg-gray-200 font-semibold " : ""
+                  }`}
+                >
                   {item.icon && <item.icon />}
                   <span>{item.title}</span>
                 </SidebarMenuButton>

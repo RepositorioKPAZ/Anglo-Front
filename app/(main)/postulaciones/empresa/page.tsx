@@ -1,41 +1,70 @@
-'use client';
-import React, { useEffect, useState } from 'react';
-import { DataTable } from '@/components/tables/data-table';
+"use client";
+import React, { useEffect, useState } from "react";
+import { DataTable } from "@/components/tables/data-table";
 import {
   PostulacionEmpresa,
   postulacionesEmpresaColumns,
-} from '@/components/tables/columns/postulaciones-empresa-columns';
-import Spinner from '@/components/spinner';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { Plus } from 'lucide-react';
+} from "@/components/tables/columns/postulaciones-empresa-columns";
+import Spinner from "@/components/spinner";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Plus } from "lucide-react";
+import { getAuthUser } from "@/app/db-auth-actions";
+
 function EmpresaPage() {
   const [empresaData, setEmpresaData] = useState<PostulacionEmpresa[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userRut, setUserRut] = useState<string | null>(null);
 
+  // First, get the authenticated user
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const user = await getAuthUser();
+        if (user) {
+          setUserRut(user.Rut.trim());
+        } else {
+          throw new Error("Usuario no autenticado");
+        }
+      } catch (err) {
+        console.error("Error fetching user:", err);
+        setError(
+          err instanceof Error ? err.message : "Error al obtener usuario"
+        );
+        setIsLoading(false);
+      }
+    }
+    fetchUser();
+  }, []);
+
+  // Then, fetch the data using the user's RUT
   useEffect(() => {
     async function fetchData() {
+      if (!userRut) return;
+
       try {
-        const response = await fetch('/api/postulaciones/empresa');
+        const response = await fetch(
+          `/api/postulaciones/empresa?rutEmpresa=${userRut}`
+        );
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || 'Error al cargar los datos');
+          throw new Error(errorData.error || "Error al cargar los datos");
         }
 
         const data = await response.json();
         setEmpresaData(data);
       } catch (err) {
-        console.error('Error fetching data:', err);
-        setError(err instanceof Error ? err.message : 'Error desconocido');
+        console.error("Error fetching data:", err);
+        setError(err instanceof Error ? err.message : "Error desconocido");
       } finally {
         setIsLoading(false);
       }
     }
 
     fetchData();
-  }, []);
+  }, [userRut]);
 
   if (isLoading) {
     return (

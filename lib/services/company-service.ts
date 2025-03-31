@@ -1,8 +1,5 @@
-import { User } from "@/lib/utils/excel-reader";
-import { readUsersFromExcel } from "@/lib/utils/excel-reader";
-import * as XLSX from "xlsx";
-import path from "path";
-import fs from "fs";
+import { User } from "@/lib/types/user";
+import { db } from "@/lib/db";
 import { generatePassword } from "@/lib/utils/password-utils";
 
 // This interface will help us swap implementations later
@@ -13,76 +10,102 @@ export interface CompanyService {
   deleteCompany(rut: string): Promise<boolean>;
 }
 
-// Excel implementation
-export class ExcelCompanyService implements CompanyService {
-  private getFilePath(): string {
-    return path.join(process.cwd(), "lib", "data", "ListaEmpresa.xlsx");
-  }
-
-  private async writeToExcel(companies: User[]): Promise<void> {
-    const filePath = this.getFilePath();
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(companies);
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
-    const excelBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
-    fs.writeFileSync(filePath, excelBuffer);
-  }
-
+// Database implementation
+export class DatabaseCompanyService implements CompanyService {
   async getAllCompanies(): Promise<User[]> {
-    return readUsersFromExcel();
+    try {
+      const result = await db.query<User[]>('SELECT * FROM empresacontacto');
+      return result;
+    } catch (error) {
+      console.error("Failed to fetch companies from database:", error);
+      throw error;
+    }
   }
 
   async createCompany(company: Omit<User, "ID" | "Empresa_C">): Promise<User> {
-    const companies = await this.getAllCompanies();
-    
-    // Generate new ID
-    const maxId = Math.max(...companies.map(c => c.ID), 0);
-    const newId = maxId + 1;
+    try {
+      // Generate password with a temporary ID
+      const password = generatePassword({ Rut: company.Rut, ID: "0" });
 
-    // Create new company with generated password
-    const newCompany: User = {
-      ...company,
-      ID: newId,
-      Empresa_C: generatePassword({ Rut: company.Rut, ID: newId.toString() })
-    };
+      // Insert into database
+      await db.query(
+        `INSERT INTO empresacontacto (
+          Rut, Empresa, Operacion, Encargado, Mail, Telefono, Empresa_C
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          company.Rut,
+          company.Empresa,
+          company.Operacion,
+          company.Encargado,
+          company.Mail,
+          company.Telefono,
+          password
+        ]
+      );
 
-    // Add to companies array
-    companies.push(newCompany);
+      // Get the created company
+      const result = await db.query<User[]>(
+        'SELECT * FROM empresacontacto WHERE Rut = ?',
+        [company.Rut]
+      );
 
-    // Write back to Excel
-    await this.writeToExcel(companies);
+      if (!result.length) {
+        throw new Error("Failed to create company");
+      }
 
-    return newCompany;
+      return result[0];
+    } catch (error) {
+      console.error("Failed to create company in database:", error);
+      throw error;
+    }
   }
 
   async updateCompany(company: User): Promise<User> {
-    const companies = await this.getAllCompanies();
-    const index = companies.findIndex(c => c.Rut === company.Rut);
-    
-    if (index === -1) {
-      throw new Error("Company not found");
-    }
+    try {
+      await db.query(
+        `UPDATE empresacontacto SET 
+          Empresa = ?,
+          Operacion = ?,
+          Encargado = ?,
+          Mail = ?,
+          Telefono = ?
+        WHERE Rut = ?`,
+        [
+          company.Empresa,
+          company.Operacion,
+          company.Encargado,
+          company.Mail,
+          company.Telefono,
+          company.Rut
+        ]
+      );
 
-    companies[index] = company;
-    await this.writeToExcel(companies);
-    
-    return company;
+      const result = await db.query<User[]>(
+        'SELECT * FROM empresacontacto WHERE Rut = ?',
+        [company.Rut]
+      );
+
+      if (!result.length) {
+        throw new Error("Company not found");
+      }
+
+      return result[0];
+    } catch (error) {
+      console.error("Failed to update company in database:", error);
+      throw error;
+    }
   }
 
   async deleteCompany(rut: string): Promise<boolean> {
-    const companies = await this.getAllCompanies();
-    const index = companies.findIndex(c => c.Rut === rut);
-    
-    if (index === -1) {
-      return false;
+    try {
+      const result = await db.query('DELETE FROM empresacontacto WHERE Rut = ?', [rut]);
+      return result.affectedRows > 0;
+    } catch (error) {
+      console.error("Failed to delete company from database:", error);
+      throw error;
     }
-
-    companies.splice(index, 1);
-    await this.writeToExcel(companies);
-    
-    return true;
   }
 }
 
-// Export a singleton instance
-export const companyService = new ExcelCompanyService(); 
+// Export the service instance
+export const companyService = new DatabaseCompanyService(); 

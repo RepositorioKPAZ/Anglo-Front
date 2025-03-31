@@ -1,4 +1,4 @@
-const mysql = require('mysql2/promise');
+import mysql from 'mysql2/promise';
 
 // Database configuration from environment variables
 const dbConfig = {
@@ -13,8 +13,7 @@ const dbConfig = {
   waitForConnections: true,
   connectionLimit: parseInt(process.env.DB_POOL_MAX || '10'),
   queueLimit: 0,
-  connectTimeout: 30000, // 30 seconds
-  acquireTimeout: 30000  // 30 seconds
+  connectTimeout: 30000 // 30 seconds
 };
 
 // Log connection details (without sensitive info)
@@ -30,7 +29,7 @@ console.log('Attempting to connect with config:', {
 const pool = mysql.createPool(dbConfig);
 
 // Function to get a connection from the pool
-async function getConnection() {
+export async function getConnection() {
   try {
     const connection = await pool.getConnection();
     return connection;
@@ -41,7 +40,7 @@ async function getConnection() {
 }
 
 // Function to execute a query with parameters
-async function executeQuery<T>(query: string, params: any[] = []): Promise<T> {
+export async function executeQuery<T>(query: string, params: any[] = []): Promise<T> {
   let connection = null;
   try {
     connection = await getConnection();
@@ -58,7 +57,7 @@ async function executeQuery<T>(query: string, params: any[] = []): Promise<T> {
 }
 
 // Function to execute a transaction
-async function executeTransaction<T>(
+export async function executeTransaction<T>(
   callback: (connection: any) => Promise<T>
 ): Promise<T> {
   let connection = null;
@@ -82,7 +81,7 @@ async function executeTransaction<T>(
 }
 
 // Function to test the database connection
-async function testConnection(): Promise<boolean> {
+export async function testConnection(): Promise<boolean> {
   try {
     const connection = await getConnection();
     await connection.ping();
@@ -108,11 +107,5 @@ testConnection()
     console.error('❌ Database connection error:', error);
   });
 
-// Export the functions and pool
-module.exports = {
-  getConnection,
-  executeQuery,
-  executeTransaction,
-  testConnection,
-  pool
-};
+// Export the pool as well
+export { pool };

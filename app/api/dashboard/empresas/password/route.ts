@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import * as XLSX from "xlsx";
-import path from "path";
-import fs from "fs";
-import { User } from "@/lib/utils/excel-reader";
+import { User } from "@/lib/types/user";
+import { findUserByRutInDb } from "@/lib/services/database-service";
+import { db } from "@/lib/db";
 
 export async function PATCH(request: Request) {
   try {
@@ -15,35 +14,20 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // Get the file path
-    const filePath = path.join(process.cwd(), "lib", "data", "ListaEmpresa.xlsx");
-
-    // Read the Excel file
-    const buffer = fs.readFileSync(filePath);
-    const workbook = XLSX.read(buffer, { type: "buffer" });
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json<User>(worksheet);
-
-    // Find the row with the matching RUT
-    const rowIndex = data.findIndex((row) => row.Rut === rut);
-
-    if (rowIndex === -1) {
+    // Find user in database
+    const user = await findUserByRutInDb(rut);
+    if (!user) {
       return NextResponse.json(
         { error: "Empresa no encontrada" },
         { status: 404 }
       );
     }
 
-    // Update the password
-    data[rowIndex].Empresa_C = newPassword;
-
-    // Convert back to worksheet
-    const newWorksheet = XLSX.utils.json_to_sheet(data);
-    workbook.Sheets[workbook.SheetNames[0]] = newWorksheet;
-
-    // Write back to file
-    const newBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
-    fs.writeFileSync(filePath, newBuffer);
+    // Update password in database
+    await db.query(
+      "UPDATE empresacontacto SET Empresa_C = ? WHERE Rut = ?",
+      [newPassword, rut]
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -10,7 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { User } from "@/lib/utils/excel-reader";
+import { User } from "@/lib/types/user";
 import { ReactNode, useState, useEffect } from "react";
 import {
   Dialog,
