@@ -14,8 +14,6 @@ export async function GET(request: Request) {
     }
 
     const dbNomina = await nominasService.getNominasByEmpresa(rutEmpresa);
-    console.log('Nomina', dbNomina);
-
     const result = dbNomina.map((item) => {
       return {
         nro: item.ID,
@@ -27,10 +25,6 @@ export async function GET(request: Request) {
         tipoBeca: item['Tipo Beca'],
       };
     });
-    console.log(
-      ':::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::'
-    );
-    console.log(result);
     return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching nominas:', error);
