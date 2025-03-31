@@ -51,6 +51,14 @@ export default function NominasPage() {
     const value = e.target.value;
     setPasteData(value);
 
+    // Helper function to parse potentially formatted money values
+    const parseMoneyValue = (value: string): number => {
+      if (!value) return 0;
+      // Remove currency symbols, dots, commas and other non-numeric characters except the decimal point
+      const numericString = value.replace(/[^\d,-]/g, "").replace(",", ".");
+      return parseFloat(numericString) || 0;
+    };
+
     // Parse the pasted data immediately for preview
     if (value.trim()) {
       const rows = value.split("\n").map((row) => {
@@ -60,9 +68,9 @@ export default function NominasPage() {
           "Nombre Completo": values[1] || "",
           Email: values[2] || "",
           Celular: values[3] || "",
-          "Remuneracion Mes 1": parseFloat(values[4]) || 0,
-          "Remuneracion Mes 2": parseFloat(values[5]) || 0,
-          "Remuneracion Mes 3": parseFloat(values[6]) || 0,
+          "Remuneracion Mes 1": parseMoneyValue(values[4]),
+          "Remuneracion Mes 2": parseMoneyValue(values[5]),
+          "Remuneracion Mes 3": parseMoneyValue(values[6]),
           "Nro Hijos": parseInt(values[7]) || 0,
           "Nombre Beneficiario": values[8] || "",
           "Rut Beneficiario": values[9] || "",

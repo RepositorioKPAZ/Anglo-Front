@@ -108,7 +108,7 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              rut: row.original.Rut,
+              rowId: row.original.Rut,
               updatedData: editedData,
             }),
           });

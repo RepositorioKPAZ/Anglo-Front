@@ -130,17 +130,38 @@ export class DatabaseNominasService implements NominasService {
 
   async updateNomina(rut: string, nomina: Partial<NominaRow>): Promise<NominaRow> {
     try {
-      const dbNomina = mapToDatabase(nomina as NominaRow);
-      const updates = Object.entries(dbNomina)
-        .filter(([key]) => key !== 'ID' && key !== 'Rut')
-        .map(([key]) => `${key} = ?`)
-        .join(', ');
+      console.log(`Updating nomina with Rut: ${rut}`);
+      console.log("Update data:", JSON.stringify(nomina, null, 2));
       
-      const values = Object.entries(dbNomina)
-        .filter(([key]) => key !== 'ID' && key !== 'Rut')
-        .map(([_, value]) => value);
-      values.push(rut);
-
+      // Get the existing record first
+      const existingRecords = await db.query<DatabaseNomina[]>('SELECT * FROM nominabeca WHERE Rut = ?', [rut]);
+      
+      if (!existingRecords.length) {
+        console.error(`No record found with Rut: ${rut}`);
+        throw new Error("Nomina not found");
+      }
+      
+      console.log("Found existing record:", JSON.stringify(existingRecords[0], null, 2));
+      
+      // Convert the partial update to database format
+      const dbNomina = mapToDatabase(nomina as NominaRow);
+      
+      // Filter out undefined/null values to only update what was provided
+      const updateEntries = Object.entries(dbNomina)
+        .filter(([key, value]) => key !== 'ID' && key !== 'Rut' && value !== undefined && value !== null);
+      
+      if (updateEntries.length === 0) {
+        console.warn("No valid fields to update");
+        return mapFromDatabase(existingRecords[0]); // Return the existing record if nothing to update
+      }
+      
+      const updates = updateEntries.map(([key]) => `${key} = ?`).join(', ');
+      const values = updateEntries.map(([_, value]) => value);
+      values.push(rut); // Add the rut as the WHERE condition value
+      
+      console.log(`Executing UPDATE nominabeca SET ${updates} WHERE Rut = ?`);
+      console.log("With values:", JSON.stringify(values, null, 2));
+      
       await db.query(
         `UPDATE nominabeca SET ${updates} WHERE Rut = ?`,
         values
@@ -148,9 +169,12 @@ export class DatabaseNominasService implements NominasService {
 
       const updated = await db.query<DatabaseNomina[]>('SELECT * FROM nominabeca WHERE Rut = ?', [rut]);
       if (!updated.length) {
-        throw new Error("Nomina not found");
+        throw new Error("Failed to retrieve updated nomina");
       }
-
+      
+      console.log("Updated record:", JSON.stringify(updated[0], null, 2));
+      
+      // Map the database record back to the NominaRow format
       return mapFromDatabase(updated[0]);
     } catch (error) {
       console.error("Failed to update nomina in database:", error);
