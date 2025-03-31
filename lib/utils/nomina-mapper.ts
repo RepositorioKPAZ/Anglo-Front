@@ -14,7 +14,7 @@ export interface DatabaseNomina {
   RutBeneficiario: string;
   RelacionTrabajador: string;
   EdadBeneficiario: number;
-  AñoAcademico: number;
+  AñoAcademico: number | string;
   PromedioNotas: number;
   TipoBeca: string;
   RazonSocial: string;
@@ -41,7 +41,7 @@ export function mapToDatabase(nomina: NominaRow): DatabaseNomina {
     RutBeneficiario: nomina["Rut Beneficiario"],
     RelacionTrabajador: nomina["Relacion con el Trabajador"],
     EdadBeneficiario: nomina["Edad del Beneficiario"],
-    AñoAcademico: nomina["Año Academico"],
+    AñoAcademico: parseInt(nomina["Año Academico"]) || nomina["Año Academico"],
     PromedioNotas: nomina["Promedio de Notas"],
     TipoBeca: nomina["Tipo Beca"],
     RazonSocial: nomina["Razon Social"],
@@ -69,7 +69,7 @@ export function mapFromDatabase(dbNomina: DatabaseNomina): NominaRow {
     "Rut Beneficiario": dbNomina.RutBeneficiario,
     "Relacion con el Trabajador": dbNomina.RelacionTrabajador,
     "Edad del Beneficiario": dbNomina.EdadBeneficiario,
-    "Año Academico": dbNomina.AñoAcademico,
+    "Año Academico": String(dbNomina.AñoAcademico),
     "Promedio de Notas": dbNomina.PromedioNotas,
     "Tipo Beca": dbNomina.TipoBeca,
     "Razon Social": dbNomina.RazonSocial,

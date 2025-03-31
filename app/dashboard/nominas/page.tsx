@@ -15,6 +15,7 @@ export default function NominasPage() {
   useEffect(() => {
     async function fetchNominas() {
       try {
+        console.log("Fetching nominas data...");
         const response = await fetch("/api/dashboard/nominas");
 
         if (!response.ok) {
@@ -23,7 +24,14 @@ export default function NominasPage() {
         }
 
         const data = await response.json();
-        setNominasData(data);
+        console.log("Nominas data fetched:", data);
+
+        if (Array.isArray(data) && data.length > 0) {
+          setNominasData(data);
+        } else {
+          console.warn("No nominas data received or empty array:", data);
+          setError("No se encontraron datos de nóminas");
+        }
       } catch (err) {
         console.error("Error fetching nominas:", err);
         setError(err instanceof Error ? err.message : "Error desconocido");
@@ -34,6 +42,13 @@ export default function NominasPage() {
 
     fetchNominas();
   }, []);
+
+  // Debug: Display state in development
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      console.log("Current nominasData state:", nominasData);
+    }
+  }, [nominasData]);
 
   if (isLoading) {
     return (

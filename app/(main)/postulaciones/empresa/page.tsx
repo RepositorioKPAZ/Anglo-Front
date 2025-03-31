@@ -11,6 +11,20 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { getAuthUser } from "@/app/db-auth-actions";
 
+// Function to map the API data to PostulacionEmpresa format
+function mapToPostulacionEmpresa(apiData: any[]): PostulacionEmpresa[] {
+  return apiData.map((item, index) => ({
+    rutEmpresa: item["Rut Empresa"] || "",
+    nro: item.ID || index + 1,
+    rut: item.Rut || "",
+    nombreCompleto: item["Nombre Completo"] || "",
+    rutBeneficiario: item["Rut Beneficiario"] || "",
+    nombreBeneficiario: item["Nombre Beneficiario"] || "",
+    tipoBeca: item["Tipo Beca"] || "",
+    promedioNotas: parseFloat(item["Promedio de Notas"]) || 0,
+  }));
+}
+
 function EmpresaPage() {
   const [empresaData, setEmpresaData] = useState<PostulacionEmpresa[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,7 +68,13 @@ function EmpresaPage() {
         }
 
         const data = await response.json();
-        setEmpresaData(data);
+        console.log("API response data:", data);
+
+        // Transform the data to match the expected format
+        const transformedData = mapToPostulacionEmpresa(data);
+        console.log("Transformed data:", transformedData);
+
+        setEmpresaData(transformedData);
       } catch (err) {
         console.error("Error fetching data:", err);
         setError(err instanceof Error ? err.message : "Error desconocido");

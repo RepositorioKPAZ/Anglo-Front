@@ -7,13 +7,13 @@ const dbConfig = {
   password: process.env.DB_PASSWORD,
   port: parseInt(process.env.DB_PORT || '3306'),
   database: process.env.DB_NAME,
-  ssl: {
+  ssl: process.env.DB_SSL === 'true' ? {
     rejectUnauthorized: true
-  },
+  } : undefined,
   waitForConnections: true,
   connectionLimit: parseInt(process.env.DB_POOL_MAX || '10'),
   queueLimit: 0,
-  connectTimeout: 30000 // 30 seconds
+  connectTimeout: parseInt(process.env.DB_CONNECTION_TIMEOUT || '30000')
 };
 
 // Log connection details (without sensitive info)
@@ -35,7 +35,7 @@ export async function getConnection() {
     return connection;
   } catch (error) {
     console.error('Error getting database connection:', error);
-    throw new Error('Failed to connect to database');
+    throw new Error(`Failed to connect to database: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
