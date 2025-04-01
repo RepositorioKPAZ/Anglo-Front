@@ -137,7 +137,11 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
-              onClick={() => setDialogOpen(true)}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setDialogOpen(true);
+              }}
             >
               <span className="sr-only">Editar</span>
               <Pencil className="h-4 w-4" />
@@ -186,7 +190,7 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
                       <span className="text-sm font-medium text-primary">
                         {key}
                       </span>
-                      {key === "Rut" ? (
+                      {key === "ID" ? (
                         <span className="text-sm text-muted-foreground">
                           {value !== null && typeof value === "object"
                             ? JSON.stringify(value)

@@ -1,9 +1,20 @@
 import { NextResponse } from "next/server";
 import { nominasService } from "@/lib/services/nominas-service";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const nominas = await nominasService.getAllNominas();
+    const { searchParams } = new URL(request.url);
+    const rutEmpresa = searchParams.get('rutEmpresa');
+    if (!rutEmpresa) {
+      return NextResponse.json(
+        { error: 'El RUT de la empresa es requerido' },
+        { status: 400 }
+      );
+    }
+
+    console.log(`Fetching nominas for empresa with RUT: ${rutEmpresa}`);
+    const nominas = await nominasService.getNominasByEmpresa(rutEmpresa);
+    console.log(`Found ${nominas.length} records for empresa ${rutEmpresa}`);
     return NextResponse.json(nominas);
   } catch (error) {
     console.error("Error fetching nominas:", error);
@@ -29,6 +40,7 @@ export async function POST(request: Request) {
     }
 
     console.log(`POST: Received ${nominas.length} nominas to create`);
+    console.log("nominas", nominas);
     
     const createdNominas = [];
     

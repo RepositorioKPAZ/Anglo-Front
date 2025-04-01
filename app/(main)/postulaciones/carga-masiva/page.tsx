@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import Spinner from "@/components/spinner";
+import { getAuthUser } from "@/app/db-auth-actions";
 
 export default function NominasPage() {
   const [nominasData, setNominasData] = useState<NominaRow[]>([]);
@@ -23,12 +24,35 @@ export default function NominasPage() {
   const [parsedRows, setParsedRows] = useState<NominaRow[]>([]);
   const [showPasteArea, setShowPasteArea] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
+  const [userRut, setUserRut] = useState<string | null>(null);
+
+  // First, get the authenticated user
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const user = await getAuthUser();
+        if (user) {
+          setUserRut(user.Rut.trim());
+        } else {
+          throw new Error("Usuario no autenticado");
+        }
+      } catch (err) {
+        console.error("Error fetching user:", err);
+        setError(
+          err instanceof Error ? err.message : "Error al obtener usuario"
+        );
+        setIsLoading(false);
+      }
+    }
+    fetchUser();
+  }, []);
 
   useEffect(() => {
     async function fetchNominas() {
       try {
-        const response = await fetch("/api/postulaciones/nominas");
-
+        const response = await fetch(
+          `/api/postulaciones/nominas?rutEmpresa=${userRut}`
+        );
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || "Error al cargar los datos");
@@ -45,7 +69,7 @@ export default function NominasPage() {
     }
 
     fetchNominas();
-  }, []);
+  }, [userRut]);
 
   const handlePasteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
@@ -121,7 +145,9 @@ export default function NominasPage() {
       }
 
       // Refresh the data
-      const updatedResponse = await fetch("/api/postulaciones/nominas");
+      const updatedResponse = await fetch(
+        `/api/postulaciones/nominas?rutEmpresa=${userRut}`
+      );
       const updatedData = await updatedResponse.json();
       setNominasData(updatedData);
 
