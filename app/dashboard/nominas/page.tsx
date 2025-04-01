@@ -26,7 +26,8 @@ export default function NominasPage() {
       const data = await response.json();
       console.log("Nominas data fetched:", data);
 
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
+        // && data.length > 0
         setNominasData(data);
       } else {
         console.warn("No nominas data received or empty array:", data);

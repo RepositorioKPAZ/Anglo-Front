@@ -131,12 +131,30 @@ export default function NominasPage() {
 
     setIsPasting(true);
     try {
+      // Filter rows to only include those where Rut Empresa matches the user's Rut
+      const filteredRows = parsedRows.filter(
+        (row) => row["Rut Empresa"] === userRut
+      );
+
+      if (filteredRows.length === 0) {
+        toast.error("No hay filas con RUT de empresa válido");
+        setIsPasting(false);
+        return;
+      }
+
+      // Show notification about filtered rows
+      if (filteredRows.length < parsedRows.length) {
+        toast.info(
+          `Se han filtrado ${parsedRows.length - filteredRows.length} filas que no coinciden con su RUT de empresa`
+        );
+      }
+
       const response = await fetch("/api/postulaciones/nominas", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(parsedRows),
+        body: JSON.stringify(filteredRows),
       });
 
       if (!response.ok) {
@@ -325,62 +343,81 @@ export default function NominasPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {parsedRows.map((row, index) => (
-                          <tr key={index} className="border-b">
-                            <td className="p-2 border">{row.Rut}</td>
-                            <td className="p-2 border">
-                              {row["Nombre Completo"]}
-                            </td>
-                            <td className="p-2 border">{row.Email}</td>
-                            <td className="p-2 border">{row.Celular}</td>
-                            <td className="p-2 border">
-                              {formatCurrency(row["Remuneracion Mes 1"] || 0)}
-                            </td>
-                            <td className="p-2 border">
-                              {formatCurrency(row["Remuneracion Mes 2"] || 0)}
-                            </td>
-                            <td className="p-2 border">
-                              {formatCurrency(row["Remuneracion Mes 3"] || 0)}
-                            </td>
-                            <td className="p-2 border">{row["Nro Hijos"]}</td>
-                            <td className="p-2 border">
-                              {row["Nombre Beneficiario"]}
-                            </td>
-                            <td className="p-2 border">
-                              {row["Rut Beneficiario"]}
-                            </td>
-                            <td className="p-2 border">
-                              {row["Relacion con el Trabajador"]}
-                            </td>
-                            <td className="p-2 border">
-                              {row["Edad del Beneficiario"]}
-                            </td>
-                            <td className="p-2 border">
-                              {row["Año Academico"]}
-                            </td>
-                            <td className="p-2 border">
-                              {row["Promedio de Notas"]}
-                            </td>
-                            <td className="p-2 border">{row["Tipo Beca"]}</td>
-                            <td className="p-2 border">
-                              {row["Razon Social"]}
-                            </td>
-                            <td className="p-2 border">{row["Rut Empresa"]}</td>
-                            <td className="p-2 border">{row.Operacion}</td>
-                            <td className="p-2 border">
-                              {row["Nro Contrato"]}
-                            </td>
-                            <td className="p-2 border">
-                              {row["Encargado Becas Estudio"]}
-                            </td>
-                            <td className="p-2 border">
-                              {row["Mail Encargado"]}
-                            </td>
-                            <td className="p-2 border">
-                              {row["Telefono Encargado"]}
-                            </td>
-                          </tr>
-                        ))}
+                        {parsedRows.map((row, index) => {
+                          const isValidRow = row["Rut Empresa"] === userRut;
+                          return (
+                            <tr
+                              key={index}
+                              className={cn(
+                                "border-b",
+                                !isValidRow && "bg-red-50"
+                              )}
+                            >
+                              <td className="p-2 border">{row.Rut}</td>
+                              <td className="p-2 border">
+                                {row["Nombre Completo"]}
+                              </td>
+                              <td className="p-2 border">{row.Email}</td>
+                              <td className="p-2 border">{row.Celular}</td>
+                              <td className="p-2 border">
+                                {formatCurrency(row["Remuneracion Mes 1"] || 0)}
+                              </td>
+                              <td className="p-2 border">
+                                {formatCurrency(row["Remuneracion Mes 2"] || 0)}
+                              </td>
+                              <td className="p-2 border">
+                                {formatCurrency(row["Remuneracion Mes 3"] || 0)}
+                              </td>
+                              <td className="p-2 border">{row["Nro Hijos"]}</td>
+                              <td className="p-2 border">
+                                {row["Nombre Beneficiario"]}
+                              </td>
+                              <td className="p-2 border">
+                                {row["Rut Beneficiario"]}
+                              </td>
+                              <td className="p-2 border">
+                                {row["Relacion con el Trabajador"]}
+                              </td>
+                              <td className="p-2 border">
+                                {row["Edad del Beneficiario"]}
+                              </td>
+                              <td className="p-2 border">
+                                {row["Año Academico"]}
+                              </td>
+                              <td className="p-2 border">
+                                {row["Promedio de Notas"]}
+                              </td>
+                              <td className="p-2 border">{row["Tipo Beca"]}</td>
+                              <td className="p-2 border">
+                                {row["Razon Social"]}
+                              </td>
+                              <td
+                                className={cn(
+                                  "p-2 border",
+                                  !isValidRow && "bg-red-200"
+                                )}
+                              >
+                                {row["Rut Empresa"]}
+                                {!isValidRow && (
+                                  <span className="ml-2 text-red-600">❌</span>
+                                )}
+                              </td>
+                              <td className="p-2 border">{row.Operacion}</td>
+                              <td className="p-2 border">
+                                {row["Nro Contrato"]}
+                              </td>
+                              <td className="p-2 border">
+                                {row["Encargado Becas Estudio"]}
+                              </td>
+                              <td className="p-2 border">
+                                {row["Mail Encargado"]}
+                              </td>
+                              <td className="p-2 border">
+                                {row["Telefono Encargado"]}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -403,6 +440,24 @@ export default function NominasPage() {
                     Limpiar
                   </Button>
                 </div>
+                {parsedRows.some((row) => row["Rut Empresa"] !== userRut) && (
+                  <div className="mt-4 p-3 border border-yellow-400 bg-yellow-50 rounded-md text-sm">
+                    <div className="flex items-start gap-2">
+                      <Info className="h-4 w-4 text-yellow-600 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-yellow-800">
+                          Importante:
+                        </p>
+                        <p className="text-yellow-700">
+                          Solo se procesarán filas donde el RUT de empresa
+                          coincida con su RUT ({userRut}). Las filas con RUT de
+                          empresa diferente se muestran destacadas en rojo y no
+                          serán procesadas.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
