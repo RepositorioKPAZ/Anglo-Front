@@ -202,6 +202,7 @@ export default function DocumentStatusCell({
           <Button
             variant="ghost"
             size="sm"
+            disabled
             className={`h-8 w-8 p-0 ${
               documentExists ? "text-blue-500" : "text-muted-foreground"
             }`}

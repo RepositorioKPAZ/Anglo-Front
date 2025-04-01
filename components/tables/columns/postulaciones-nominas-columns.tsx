@@ -102,13 +102,14 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
       const handleSave = async () => {
         try {
           setIsLoading(true);
+          console.log("editedData Postulaciones", editedData);
           const response = await fetch("/api/postulaciones/nominas", {
             method: "PATCH",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              rowId: row.original.Rut,
+              rowId: row.original.ID,
               updatedData: editedData,
             }),
           });

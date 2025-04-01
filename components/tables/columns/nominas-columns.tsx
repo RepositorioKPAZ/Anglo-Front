@@ -108,17 +108,18 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
       const handleSave = async () => {
         try {
           // Use ID if available, otherwise use Rut as fallback
-          const identifier =
-            row.original.ID !== undefined ? row.original.ID : row.original.Rut;
+          // const identifier =
+          //   row.original.ID !== undefined ? row.original.ID : row.original.Rut;
 
           setIsLoading(true);
+          console.log("editedData Nominas", editedData);
           const response = await fetch("/api/postulaciones/nominas", {
             method: "PATCH",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              rowId: identifier,
+              rowId: row.original.ID, // identifier,
               updatedData: editedData,
             }),
           });

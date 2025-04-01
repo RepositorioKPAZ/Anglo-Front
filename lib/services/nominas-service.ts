@@ -149,17 +149,24 @@ export class DatabaseNominasService implements NominasService {
       
       // Check if id is numeric (ID) or not (RUT)
       let result;
+      
+      // Create SET clause string and values array
+      const setClauses = Object.keys(setValues).map(key => `${key} = ?`).join(', ');
+      const values = Object.values(setValues);
+      
       if (/^\d+$/.test(id)) {
         // It's a numeric ID
+        values.push(id);
         result = await db.query(
-          `UPDATE nominabeca SET ? WHERE ID = ?`,
-          [setValues, id]
+          `UPDATE nominabeca SET ${setClauses} WHERE ID = ?`,
+          values
         );
       } else {
         // It's a RUT
+        values.push(id);
         result = await db.query(
-          `UPDATE nominabeca SET ? WHERE Rut = ?`,
-          [setValues, id]
+          `UPDATE nominabeca SET ${setClauses} WHERE Rut = ?`,
+          values
         );
       }
       
