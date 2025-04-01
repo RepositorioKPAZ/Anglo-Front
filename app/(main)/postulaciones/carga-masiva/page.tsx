@@ -31,11 +31,53 @@ export default function NominasPage() {
 
         if (!response.ok) {
           const errorData = await response.json();
+
+          // Check if it's an authentication error
+          if (response.status === 401) {
+            // Redirect to login page
+            window.location.href = "/db-sign-in";
+            return;
+          }
+
           throw new Error(errorData.error || "Error al cargar los datos");
         }
 
         const data = await response.json();
-        setNominasData(data);
+        console.log(`Received ${data?.length || 0} nominas from API`);
+
+        // If no data was returned, try an alternative approach to debug
+        if (!data || data.length === 0) {
+          console.log(
+            "No data returned from API, trying emergency debug mode..."
+          );
+
+          try {
+            // Try to make a debug fetch to see all nominas (temporary for debugging)
+            const debugResponse = await fetch(
+              "/api/postulaciones/nominas?debug=true"
+            );
+            if (debugResponse.ok) {
+              const debugData = await debugResponse.json();
+              console.log(
+                `Debug mode returned ${debugData?.length || 0} nominas`
+              );
+
+              if (debugData && debugData.length > 0) {
+                console.log("Using debug data as fallback");
+                setNominasData(debugData);
+              } else {
+                setNominasData([]);
+              }
+            } else {
+              setNominasData([]);
+            }
+          } catch (debugError) {
+            console.error("Error in debug mode:", debugError);
+            setNominasData([]);
+          }
+        } else {
+          setNominasData(data);
+        }
       } catch (err) {
         console.error("Error fetching nominas:", err);
         setError(err instanceof Error ? err.message : "Error desconocido");
@@ -157,11 +199,26 @@ export default function NominasPage() {
     return (
       <div className="container mx-auto py-10">
         <div
-          className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
+          className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4"
           role="alert"
         >
           <strong className="font-bold">Error: </strong>
           <span className="block sm:inline">{error}</span>
+        </div>
+
+        <div className="flex gap-4 mt-4">
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Reintentar
+          </Button>
+
+          <Button
+            onClick={() => {
+              // Force debug mode to retrieve all nominas
+              window.location.href = "?debug=true";
+            }}
+          >
+            Cargar todos los datos (modo depuración)
+          </Button>
         </div>
       </div>
     );

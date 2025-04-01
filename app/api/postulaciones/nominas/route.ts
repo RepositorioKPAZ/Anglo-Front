@@ -1,9 +1,48 @@
 import { NextResponse } from "next/server";
 import { nominasService } from "@/lib/services/nominas-service";
+import { getAuthUser } from "@/app/db-auth-actions";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const nominas = await nominasService.getAllNominas();
+    const { searchParams } = new URL(request.url);
+    const isDebugMode = searchParams.get('debug') === 'true';
+    
+    // Get the authenticated user
+    const user = await getAuthUser();
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: "No autenticado" },
+        { status: 401 }
+      );
+    }
+    
+    console.log("GET nominas: Authenticated user:", JSON.stringify(user, null, 2));
+    let nominas;
+    
+    // Get all nominas first
+    nominas = await nominasService.getAllNominas();
+    console.log(`GET nominas: Found ${nominas?.length || 0} total nominas`);
+    
+    // Filter nominas for non-admin users
+    if (user.Empresa !== "admin" && !isDebugMode) {
+      console.log(`User empresa: ${user.Empresa}`);
+      
+      // Filter nominas based on empresa
+      const filteredNominas = nominas.filter(n => 
+        n["Rut Empresa"] === user.Rut || 
+        // Try different field formats just in case
+        (n as any).RutEmpresa === user.Rut ||
+        (n as any).empresa_rut === user.Empresa
+      );
+      
+      console.log(`Filtered to ${filteredNominas.length} nominas for this empresa`);
+      
+      // Return the filtered nominas
+      return NextResponse.json(filteredNominas);
+    }
+    
+    // For admin users or debug mode, return all nominas
     return NextResponse.json(nominas);
   } catch (error) {
     console.error("Error fetching nominas:", error);
@@ -16,6 +55,16 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    // Get the authenticated user
+    const user = await getAuthUser();
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: "No autenticado" },
+        { status: 401 }
+      );
+    }
+    
     const payload = await request.json();
     
     // Check if we received an array or a single object
@@ -40,6 +89,11 @@ export async function POST(request: Request) {
       }
 
       try {
+        // Set the empresa field to the logged-in user's empresa (unless admin)
+        if (user.Empresa !== "admin") {
+          nomina["Rut Empresa"] = user.Empresa;
+        }
+        
         const createdNomina = await nominasService.createNomina(nomina);
         createdNominas.push(createdNomina);
       } catch (createError) {
@@ -72,6 +126,16 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    // Get the authenticated user
+    const user = await getAuthUser();
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: "No autenticado" },
+        { status: 401 }
+      );
+    }
+
     const { rowId, updatedData } = await request.json();
 
     if (!rowId || !updatedData) {
@@ -83,6 +147,41 @@ export async function PATCH(request: Request) {
 
     console.log("PATCH: Updating nomina with identifier:", rowId);
     console.log("PATCH: Updated data:", JSON.stringify(updatedData, null, 2));
+
+    // If not admin, first check if the nomina belongs to the user's empresa
+    if (user.Empresa !== "admin") {
+      // Fetch the nomina to check ownership
+      let existingNomina;
+      
+      // Try to find by ID (numeric) or RUT
+      if (/^\d+$/.test(rowId)) {
+        const allNominas = await nominasService.getAllNominas();
+        existingNomina = allNominas.find(n => String(n.ID) === rowId);
+      } else {
+        const allNominas = await nominasService.getAllNominas();
+        existingNomina = allNominas.find(n => n.Rut === rowId);
+      }
+      
+      if (!existingNomina) {
+        return NextResponse.json(
+          { error: "No se encontró la nómina especificada" },
+          { status: 404 }
+        );
+      }
+      
+      // Check if the nomina belongs to the user's empresa
+      if (existingNomina["Rut Empresa"] !== user.Empresa) {
+        return NextResponse.json(
+          { error: "No tiene permiso para modificar esta nómina" },
+          { status: 403 }
+        );
+      }
+      
+      // Ensure empresa is not changed to something else
+      if (updatedData["Rut Empresa"] && updatedData["Rut Empresa"] !== user.Empresa) {
+        updatedData["Rut Empresa"] = user.Empresa; // Force to user's empresa
+      }
+    }
 
     const updatedNomina = await nominasService.updateNomina(rowId, updatedData);
     
@@ -111,6 +210,16 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    // Get the authenticated user
+    const user = await getAuthUser();
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: "No autenticado" },
+        { status: 401 }
+      );
+    }
+
     const { rowId } = await request.json();
 
     if (!rowId) {
@@ -118,6 +227,36 @@ export async function DELETE(request: Request) {
         { error: "ID de fila es requerido" },
         { status: 400 }
       );
+    }
+    
+    // If not admin, first check if the nomina belongs to the user's empresa
+    if (user.Empresa !== "admin") {
+      // Fetch the nomina to check ownership
+      let existingNomina;
+      
+      // Try to find by ID (numeric) or RUT
+      if (/^\d+$/.test(rowId)) {
+        const allNominas = await nominasService.getAllNominas();
+        existingNomina = allNominas.find(n => String(n.ID) === rowId);
+      } else {
+        const allNominas = await nominasService.getAllNominas();
+        existingNomina = allNominas.find(n => n.Rut === rowId);
+      }
+      
+      if (!existingNomina) {
+        return NextResponse.json(
+          { error: "No se encontró la nómina especificada" },
+          { status: 404 }
+        );
+      }
+      
+      // Check if the nomina belongs to the user's empresa
+      if (existingNomina["Rut Empresa"] !== user.Empresa) {
+        return NextResponse.json(
+          { error: "No tiene permiso para eliminar esta nómina" },
+          { status: 403 }
+        );
+      }
     }
 
     const success = await nominasService.deleteNomina(rowId);

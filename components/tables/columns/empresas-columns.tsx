@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { User } from "@/lib/types/user";
-import { ReactNode, useState, useEffect, useContext } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { TableContext } from "@/components/tables/columns/nominas-columns";
 
 // Helper function to create consistent column definitions
 function createColumn(
@@ -62,12 +61,10 @@ function PasswordManager({
   currentPassword,
   rut,
   onPasswordChange,
-  refreshData,
 }: {
   currentPassword: string;
   rut: string;
   onPasswordChange: (newPassword: string) => void;
-  refreshData?: () => Promise<void>;
 }) {
   const [password, setPassword] = useState<string>(currentPassword);
   const [newPassword, setNewPassword] = useState<string>("");
@@ -105,11 +102,6 @@ function PasswordManager({
       setNewPassword("");
       onPasswordChange(newPassword.trim());
       toast.success("Contraseña actualizada correctamente");
-
-      // Refresh data if available
-      if (refreshData) {
-        await refreshData();
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
       toast.error(
@@ -184,11 +176,9 @@ function PasswordManager({
 function DeleteButton({
   rut,
   onDelete,
-  refreshData,
 }: {
   rut: string;
   onDelete: () => void;
-  refreshData?: () => Promise<void>;
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -218,11 +208,6 @@ function DeleteButton({
 
       toast.success("Empresa eliminada correctamente");
       onDelete();
-
-      // Use refreshData instead of relying on onDelete to reload page
-      if (refreshData) {
-        await refreshData();
-      }
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Error al eliminar la empresa"
@@ -261,7 +246,6 @@ export const empresasColumns: ColumnDef<User>[] = [
       const [dialogOpen, setDialogOpen] = useState(false);
       const [editedData, setEditedData] = useState<Partial<User>>({});
       const [isLoading, setIsLoading] = useState(false);
-      const { refreshData } = useContext(TableContext);
 
       useEffect(() => {
         if (dialogOpen) {
@@ -296,11 +280,8 @@ export const empresasColumns: ColumnDef<User>[] = [
 
           toast.success("Datos actualizados correctamente");
           setDialogOpen(false);
-
-          // Use refreshData instead of page reload
-          if (refreshData) {
-            await refreshData();
-          }
+          // Trigger a refresh of the table data
+          window.location.reload();
         } catch (error) {
           console.error("Error saving changes:", error);
           toast.error("Error al actualizar los datos");
@@ -316,11 +297,7 @@ export const empresasColumns: ColumnDef<User>[] = [
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                setDialogOpen(true);
-              }}
+              onClick={() => setDialogOpen(true)}
             >
               <span className="sr-only">Editar</span>
               <Pencil className="h-4 w-4" />
@@ -346,7 +323,6 @@ export const empresasColumns: ColumnDef<User>[] = [
                       // Update the row data with the new password
                       row.original.Empresa_C = newPassword;
                     }}
-                    refreshData={refreshData}
                   />
                 </div>
 
@@ -413,9 +389,9 @@ export const empresasColumns: ColumnDef<User>[] = [
                     rut={row.original.Rut || ""}
                     onDelete={() => {
                       setDialogOpen(false);
-                      // No need to reload the page
+                      // Trigger a refresh of the table data
+                      window.location.reload();
                     }}
-                    refreshData={refreshData}
                   />
                 </div>
 

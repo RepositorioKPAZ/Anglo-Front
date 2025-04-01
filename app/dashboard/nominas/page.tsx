@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { DataTable } from "@/components/tables/data-table";
 import { nominasColumns } from "@/components/tables/columns/nominas-columns";
 import { NominaRow } from "@/lib/types/user";
@@ -12,37 +12,36 @@ export default function NominasPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchNominas = useCallback(async () => {
-    try {
-      console.log("Fetching nominas data...");
-      setIsLoading(true);
-      const response = await fetch("/api/dashboard/nominas");
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Error al cargar los datos");
-      }
-
-      const data = await response.json();
-      console.log("Nominas data fetched:", data);
-
-      if (Array.isArray(data) && data.length > 0) {
-        setNominasData(data);
-      } else {
-        console.warn("No nominas data received or empty array:", data);
-        setError("No se encontraron datos de nóminas");
-      }
-    } catch (err) {
-      console.error("Error fetching nominas:", err);
-      setError(err instanceof Error ? err.message : "Error desconocido");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
+    async function fetchNominas() {
+      try {
+        console.log("Fetching nominas data...");
+        const response = await fetch("/api/dashboard/nominas");
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Error al cargar los datos");
+        }
+
+        const data = await response.json();
+        console.log("Nominas data fetched:", data);
+
+        if (Array.isArray(data) && data.length > 0) {
+          setNominasData(data);
+        } else {
+          console.warn("No nominas data received or empty array:", data);
+          setError("No se encontraron datos de nóminas");
+        }
+      } catch (err) {
+        console.error("Error fetching nominas:", err);
+        setError(err instanceof Error ? err.message : "Error desconocido");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
     fetchNominas();
-  }, [fetchNominas]);
+  }, []);
 
   // Debug: Display state in development
   useEffect(() => {
@@ -102,7 +101,6 @@ export default function NominasPage() {
           enableExport={true}
           exportFileName="nominas-trabajadores"
           // agregarRegistroAdmin={true}
-          refreshData={fetchNominas}
         />
       </div>
     </div>

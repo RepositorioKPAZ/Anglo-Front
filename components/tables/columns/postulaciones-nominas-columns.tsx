@@ -113,17 +113,23 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
             }),
           });
 
+          const data = await response.json();
+
           if (!response.ok) {
-            throw new Error("Error al actualizar los datos");
+            throw new Error(data.error || "Error al actualizar los datos");
           }
 
-          toast.success("Datos actualizados correctamente");
+          toast.success(data.message || "Datos actualizados correctamente");
           setDialogOpen(false);
           // Trigger a refresh of the table data
           window.location.reload();
         } catch (error) {
           console.error("Error saving changes:", error);
-          toast.error("Error al actualizar los datos");
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Error al actualizar los datos"
+          );
         } finally {
           setIsLoading(false);
         }

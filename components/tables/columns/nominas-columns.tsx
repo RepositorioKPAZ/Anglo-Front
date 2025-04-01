@@ -20,18 +20,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-
-// Create a type for the table context that includes refreshData
-interface TableContext {
-  refreshData?: () => Promise<void>;
-}
-
-// Create a context for the table
-import { createContext } from "react";
-export const TableContext = createContext<TableContext>({});
 
 // Helper function to create consistent column definitions
 function createColumn(
@@ -87,7 +78,6 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
       const [isLoading, setIsLoading] = useState(false);
       const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
       const [isDeleting, setIsDeleting] = useState(false);
-      const { refreshData } = useContext(TableContext);
 
       useEffect(() => {
         if (dialogOpen) {
@@ -129,11 +119,6 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
 
           toast.success("Datos actualizados correctamente");
           setDialogOpen(false);
-
-          // Refresh data if the function is available
-          if (refreshData) {
-            await refreshData();
-          }
         } catch (error) {
           console.error("Error saving changes:", error);
           toast.error("Error al actualizar los datos");
@@ -166,11 +151,6 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
           toast.success("Fila eliminada correctamente");
           setDeleteDialogOpen(false);
           setDialogOpen(false);
-
-          // Refresh data if the function is available
-          if (refreshData) {
-            await refreshData();
-          }
         } catch (error) {
           console.error("Error deleting row:", error);
           toast.error("Error al eliminar la fila");
@@ -186,11 +166,7 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                setDialogOpen(true);
-              }}
+              onClick={() => setDialogOpen(true)}
             >
               <span className="sr-only">Editar</span>
               <Pencil className="h-4 w-4" />

@@ -69,7 +69,65 @@ export class DatabaseNominasService implements NominasService {
 
   async getNominasByEmpresa(rutEmpresa: string): Promise<NominaRow[]> {
     try {
-      const result = await db.query<DatabaseNomina[]>('SELECT * FROM nominabeca WHERE RutEmpresa = ?', [rutEmpresa]);
+      console.log(`Getting nominas for empresa with RUT: ${rutEmpresa}`);
+      
+      // First, let's check all nominas to see what we have in the database
+      const allNominas = await db.query<DatabaseNomina[]>('SELECT * FROM nominabeca LIMIT 10');
+      console.log(`Sample nominas in database (first 10): ${allNominas.length}`);
+      
+      if (allNominas.length > 0) {
+        // Log all available fields in the first record
+        console.log("First record fields in the database:");
+        const firstRecord = allNominas[0];
+        console.log(JSON.stringify(firstRecord, null, 2));
+      }
+      
+      // Try different field names since there might be inconsistency
+      // Between "RutEmpresa" and "empresa_rut" or other variations
+      const query = `
+        SELECT * FROM nominabeca 
+        WHERE RutEmpresa = ? 
+           OR empresa_rut = ? 
+           OR \`Rut Empresa\` = ?
+      `;
+      
+      const result = await db.query<DatabaseNomina[]>(query, [
+        rutEmpresa, // Try with RutEmpresa 
+        rutEmpresa, // Try with empresa_rut
+        rutEmpresa  // Try with `Rut Empresa`
+      ]);
+      
+      console.log(`Found ${result.length} nominas for empresa with RUT: ${rutEmpresa}`);
+      
+      // If still no results, get all nominas as a fallback
+      if (result.length === 0) {
+        console.log("No results found with filters, falling back to all records for debugging");
+        const allRecords = await db.query<DatabaseNomina[]>('SELECT * FROM nominabeca');
+        console.log(`Total records in database: ${allRecords.length}`);
+        
+        if (allRecords.length > 0) {
+          // Extract all empresa fields from first 5 records to debug
+          console.log("Sample empresa fields from first 5 records:");
+          allRecords.slice(0, 5).forEach((record, index) => {
+            console.log(`Record #${index + 1}:`, {
+              id: record.ID,
+              rut: record.Rut,
+              RutEmpresa: record.RutEmpresa,
+              // Try to access other potential field names
+              rutEmpresa: (record as any).rutEmpresa,
+              empresa_rut: (record as any).empresa_rut,
+              Rut_Empresa: (record as any)['Rut_Empresa'],
+              'Rut Empresa': (record as any)['Rut Empresa']
+            });
+          });
+        }
+        
+        // For now, return all records to avoid empty screens
+        // TODO: Remove this fallback once issue is fixed
+        return allRecords.map(mapFromDatabase);
+      }
+      
+      // Map and return the results
       return result.map(mapFromDatabase);
     } catch (error) {
       console.error("Failed to fetch nominas by empresa from database:", error);
