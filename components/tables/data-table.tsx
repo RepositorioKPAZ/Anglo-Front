@@ -11,6 +11,8 @@ import {
   ColumnFiltersState,
   getFilteredRowModel,
   VisibilityState,
+  FilterFn,
+  Row,
 } from "@tanstack/react-table";
 
 // Meta type extension for columns
@@ -53,6 +55,7 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   searchKey?: string;
+  searchKeys?: string[];
   searchPlaceholder?: string;
   title?: string;
   showEntries?: boolean;
@@ -67,6 +70,7 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   searchKey,
+  searchKeys,
   searchPlaceholder = "Buscar...",
   title,
   showEntries = true,
@@ -83,6 +87,8 @@ export function DataTable<TData, TValue>({
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+  const [globalFilter, setGlobalFilter] = useState("");
   const [newCompany, setNewCompany] = useState({
     Rut: "",
     Empresa: "",
@@ -93,6 +99,28 @@ export function DataTable<TData, TValue>({
     Empresa_C: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Custom filter function for multi-column search
+  const multiColumnFilter: FilterFn<any> = (row, columnId, value, addMeta) => {
+    // Get the list of columns to search
+    const columnsToSearch: string[] = [];
+    if (searchKey) columnsToSearch.push(searchKey);
+    if (searchKeys) columnsToSearch.push(...searchKeys);
+
+    if (!value || value === "") return true;
+
+    // Return true if any of the specified columns match the search value
+    return columnsToSearch.some((colId) => {
+      const cellValue = row.getValue(colId);
+      if (typeof cellValue === "string") {
+        return cellValue.toLowerCase().includes(value.toLowerCase());
+      }
+      if (cellValue !== null && cellValue !== undefined) {
+        return String(cellValue).toLowerCase().includes(value.toLowerCase());
+      }
+      return false;
+    });
+  };
 
   const table = useReactTable({
     data,
@@ -105,6 +133,8 @@ export function DataTable<TData, TValue>({
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: multiColumnFilter,
     onPaginationChange: (updater) => {
       const newState =
         typeof updater === "function"
@@ -117,6 +147,7 @@ export function DataTable<TData, TValue>({
       columnFilters,
       columnVisibility,
       rowSelection,
+      globalFilter: searchValue,
       pagination: {
         pageSize: pageSize,
         pageIndex: pageIndex,
@@ -353,17 +384,15 @@ export function DataTable<TData, TValue>({
           )}
         </div>
 
-        {searchKey && (
+        {(searchKey || searchKeys) && (
           <div className="flex items-center justify-end space-x-2 pe-1 w-full">
             <div>Buscar:</div>
             <Input
               placeholder={searchPlaceholder}
-              value={
-                (table.getColumn(searchKey)?.getFilterValue() as string) ?? ""
-              }
-              onChange={(event) =>
-                table.getColumn(searchKey)?.setFilterValue(event.target.value)
-              }
+              value={searchValue}
+              onChange={(event) => {
+                setSearchValue(event.target.value);
+              }}
               className="max-w-md"
             />
           </div>

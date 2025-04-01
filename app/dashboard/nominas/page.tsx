@@ -94,8 +94,8 @@ export default function NominasPage() {
           columns={nominasColumns}
           data={nominasData}
           title="Nóminas Trabajadores"
-          searchKey="Nombre Completo"
-          searchPlaceholder="Buscar por nombre..."
+          searchKeys={["Nombre Completo", "Razon Social"]}
+          searchPlaceholder="Buscar por nombre o empresa..."
           enableHorizontalScroll={true}
           enableColumnVisibility={true}
           enableExport={true}
