@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { DataTable } from "@/components/tables/data-table";
 import { empresasColumns } from "@/components/tables/columns/empresas-columns";
 import { User } from "@/lib/types/user";
@@ -11,28 +11,29 @@ export default function EmpresasPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchEmpresas() {
-      try {
-        const response = await fetch("/api/dashboard/empresas");
+  const fetchEmpresas = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch("/api/dashboard/empresas");
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Error al cargar los datos");
-        }
-
-        const data = await response.json();
-        setEmpresasData(data);
-      } catch (err) {
-        console.error("Error fetching empresas:", err);
-        setError(err instanceof Error ? err.message : "Error desconocido");
-      } finally {
-        setIsLoading(false);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Error al cargar los datos");
       }
-    }
 
-    fetchEmpresas();
+      const data = await response.json();
+      setEmpresasData(data);
+    } catch (err) {
+      console.error("Error fetching empresas:", err);
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchEmpresas();
+  }, [fetchEmpresas]);
 
   if (isLoading) {
     return (
@@ -88,6 +89,7 @@ export default function EmpresasPage() {
           enableExport={true}
           exportFileName="empresas-registradas"
           agregarEmpresaAdmin={true}
+          refreshData={fetchEmpresas}
         />
       </div>
     </div>
