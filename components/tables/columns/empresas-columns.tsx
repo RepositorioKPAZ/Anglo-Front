@@ -351,6 +351,14 @@ export const empresasColumns: ColumnDef<User>[] = [
                             ? JSON.stringify(value)
                             : String(value)}
                         </span>
+                      ) : key === "ID" ? (
+                        <Input
+                          value={
+                            (editedData[key as keyof User] as string) || ""
+                          }
+                          readOnly
+                          className="mt-1 bg-gray-100 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none"
+                        />
                       ) : (
                         <Input
                           value={
