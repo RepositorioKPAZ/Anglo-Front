@@ -22,21 +22,32 @@ export interface NominaRow {
   "Remuneracion Mes 1": number;
   "Remuneracion Mes 2": number;
   "Remuneracion Mes 3": number;
+  "Años Mesa": number;
+  "Ingreso Percapita": string;
+  "Relacion con el Trabajador": string;
+  "Tipo Beneficiario": string;
   "Nro Hijos": number;
   "Nombre Beneficiario": string;
   "Rut Beneficiario": string;
-  "Relacion con el Trabajador": string;
   "Edad del Beneficiario": number;
   "Año Academico": string;
   "Promedio de Notas": number;
+  "Años Antiguedad": number;
   "Tipo Beca": string;
   "Razon Social": string;
   "Rut Empresa": string;
+  "Nombre Empresa": string;
+  "Cod Plan": string;
+  "Año Postulacion": number;
   Operacion: string;
   "Nro Contrato": string;
   "Encargado Becas Estudio": string;
   "Mail Encargado": string;
   "Telefono Encargado": string;
+  Direccion?: string;
+  Comuna?: string;
+  Sucursal?: string;
+  Cargo?: string;
 }
 
 export interface DatabaseNomina {
