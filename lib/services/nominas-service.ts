@@ -6,8 +6,8 @@ export interface NominasService {
   getAllNominas(): Promise<NominaRow[]>;
   getNominasByEmpresa(rutEmpresa: string): Promise<NominaRow[]>;
   createNomina(nomina: NominaRow): Promise<NominaRow>;
-  updateNomina(rut: string, nomina: Partial<NominaRow>): Promise<NominaRow>;
-  deleteNomina(rut: string): Promise<boolean>;
+  updateNomina(id: string, nomina: Partial<NominaRow>): Promise<NominaRow>;
+  deleteNomina(id: string): Promise<boolean>;
 }
 
 export class DatabaseNominasService implements NominasService {
@@ -128,64 +128,77 @@ export class DatabaseNominasService implements NominasService {
     }
   }
 
-  async updateNomina(rut: string, nomina: Partial<NominaRow>): Promise<NominaRow> {
+  async updateNomina(id: string, nomina: Partial<NominaRow>): Promise<NominaRow> {
     try {
-      console.log(`Updating nomina with Rut: ${rut}`);
-      console.log("Update data:", JSON.stringify(nomina, null, 2));
-      
-      // Get the existing record first
-      const existingRecords = await db.query<DatabaseNomina[]>('SELECT * FROM nominabeca WHERE Rut = ?', [rut]);
-      
-      if (!existingRecords.length) {
-        console.error(`No record found with Rut: ${rut}`);
-        throw new Error("Nomina not found");
-      }
-      
-      console.log("Found existing record:", JSON.stringify(existingRecords[0], null, 2));
-      
-      // Convert the partial update to database format
       const dbNomina = mapToDatabase(nomina as NominaRow);
       
-      // Filter out undefined/null values to only update what was provided
-      const updateEntries = Object.entries(dbNomina)
-        .filter(([key, value]) => key !== 'ID' && key !== 'Rut' && value !== undefined && value !== null);
+      // Remove undefined properties
+      Object.keys(dbNomina).forEach(key => {
+        if (dbNomina[key as keyof DatabaseNomina] === undefined) {
+          delete dbNomina[key as keyof DatabaseNomina];
+        }
+      });
       
-      if (updateEntries.length === 0) {
-        console.warn("No valid fields to update");
-        return mapFromDatabase(existingRecords[0]); // Return the existing record if nothing to update
+      // Convert to SQL set format
+      const setValues: { [key: string]: any } = {};
+      Object.entries(dbNomina).forEach(([key, value]) => {
+        if (key !== 'ID' && key !== 'Rut') {  // Don't update primary identifiers
+          setValues[key] = value;
+        }
+      });
+      
+      // Check if id is numeric (ID) or not (RUT)
+      let result;
+      if (/^\d+$/.test(id)) {
+        // It's a numeric ID
+        result = await db.query(
+          `UPDATE nominabeca SET ? WHERE ID = ?`,
+          [setValues, id]
+        );
+      } else {
+        // It's a RUT
+        result = await db.query(
+          `UPDATE nominabeca SET ? WHERE Rut = ?`,
+          [setValues, id]
+        );
       }
       
-      const updates = updateEntries.map(([key]) => `${key} = ?`).join(', ');
-      const values = updateEntries.map(([_, value]) => value);
-      values.push(rut); // Add the rut as the WHERE condition value
-      
-      console.log(`Executing UPDATE nominabeca SET ${updates} WHERE Rut = ?`);
-      console.log("With values:", JSON.stringify(values, null, 2));
-      
-      await db.query(
-        `UPDATE nominabeca SET ${updates} WHERE Rut = ?`,
-        values
-      );
-
-      const updated = await db.query<DatabaseNomina[]>('SELECT * FROM nominabeca WHERE Rut = ?', [rut]);
-      if (!updated.length) {
-        throw new Error("Failed to retrieve updated nomina");
+      if (result.affectedRows === 0) {
+        console.warn(`No nomina found with identifier: ${id}`);
+        return null as unknown as NominaRow;
       }
       
-      console.log("Updated record:", JSON.stringify(updated[0], null, 2));
+      // Get the updated record
+      let updatedRecord;
+      if (/^\d+$/.test(id)) {
+        updatedRecord = await db.query('SELECT * FROM nominabeca WHERE ID = ?', [id]);
+      } else {
+        updatedRecord = await db.query('SELECT * FROM nominabeca WHERE Rut = ?', [id]);
+      }
       
-      // Map the database record back to the NominaRow format
-      return mapFromDatabase(updated[0]);
+      if (updatedRecord && updatedRecord.length > 0) {
+        return mapFromDatabase(updatedRecord[0] as DatabaseNomina);
+      }
+      
+      throw new Error(`Updated record not found with identifier: ${id}`);
     } catch (error) {
       console.error("Failed to update nomina in database:", error);
       throw error;
     }
   }
 
-  async deleteNomina(rut: string): Promise<boolean> {
+  async deleteNomina(id: string): Promise<boolean> {
     try {
-      const result = await db.query('DELETE FROM nominabeca WHERE Rut = ?', [rut]);
-      return result.affectedRows > 0;
+      // Check if id is numeric (ID) or not (RUT)
+      if (/^\d+$/.test(id)) {
+        // It's a numeric ID
+        const result = await db.query('DELETE FROM nominabeca WHERE ID = ?', [id]);
+        return result.affectedRows > 0;
+      } else {
+        // It's a RUT
+        const result = await db.query('DELETE FROM nominabeca WHERE Rut = ?', [id]);
+        return result.affectedRows > 0;
+      }
     } catch (error) {
       console.error("Failed to delete nomina from database:", error);
       throw error;

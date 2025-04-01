@@ -97,6 +97,10 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
 
       const handleSave = async () => {
         try {
+          // Use ID if available, otherwise use Rut as fallback
+          const identifier =
+            row.original.ID !== undefined ? row.original.ID : row.original.Rut;
+
           setIsLoading(true);
           const response = await fetch("/api/postulaciones/nominas", {
             method: "PATCH",
@@ -104,7 +108,7 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              rowId: row.original.Rut,
+              rowId: identifier,
               updatedData: editedData,
             }),
           });
@@ -125,6 +129,10 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
 
       const handleDelete = async () => {
         try {
+          // Use ID if available, otherwise use Rut as fallback
+          const identifier =
+            row.original.ID !== undefined ? row.original.ID : row.original.Rut;
+
           setIsDeleting(true);
           const response = await fetch("/api/postulaciones/nominas", {
             method: "DELETE",
@@ -132,7 +140,7 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              rowId: row.original.Rut,
+              rowId: identifier,
             }),
           });
 

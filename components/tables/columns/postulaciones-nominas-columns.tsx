@@ -147,7 +147,7 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
                   Editar Postulación
                 </DialogTitle>
               </DialogHeader>
-              <div className="flex flex-col gap-6 mt-6">
+              {/* <div className="flex flex-col gap-6 mt-6">
                 <div className="text-xl font-semibold text-primary">
                   Acciones Rápidas
                 </div>
@@ -171,7 +171,7 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
                     </div>
                   </div>
                 </div>
-              </div>
+              </div> */}
               <div className="flex flex-col gap-6 mt-8">
                 <div className="text-xl font-semibold text-primary">
                   Datos de la Empresa

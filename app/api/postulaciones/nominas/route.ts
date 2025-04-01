@@ -76,12 +76,12 @@ export async function PATCH(request: Request) {
 
     if (!rowId || !updatedData) {
       return NextResponse.json(
-        { error: "RUT y datos actualizados son requeridos" },
+        { error: "ID y datos actualizados son requeridos" },
         { status: 400 }
       );
     }
 
-    console.log("PATCH: Updating nomina with ID:", rowId);
+    console.log("PATCH: Updating nomina with identifier:", rowId);
     console.log("PATCH: Updated data:", JSON.stringify(updatedData, null, 2));
 
     const updatedNomina = await nominasService.updateNomina(rowId, updatedData);
