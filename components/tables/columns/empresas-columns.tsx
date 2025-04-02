@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { ColumnDef, Column, Row } from "@tanstack/react-table";
+import { ColumnDef, Column, Row } from '@tanstack/react-table';
 import {
   ArrowUpDown,
   Pencil,
@@ -8,19 +8,19 @@ import {
   EyeOff,
   Loader2,
   Trash2,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { User } from "@/lib/types/user";
-import { ReactNode, useState, useEffect, useContext } from "react";
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { User } from '@/lib/types/user';
+import { ReactNode, useState, useEffect, useContext } from 'react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
-import { TableContext } from "@/components/tables/columns/nominas-columns";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
+import { TableContext } from '@/components/tables/columns/nominas-columns';
 
 // Helper function to create consistent column definitions
 function createColumn(
@@ -35,7 +35,7 @@ function createColumn(
       return (
         <Button
           variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           className="font-medium whitespace-nowrap"
         >
           {header}
@@ -46,7 +46,7 @@ function createColumn(
     cell: ({ row }: { row: Row<User> }) => {
       const value = row.getValue(key as string);
       return (
-        <div className={`${width ? width : ""}`}>
+        <div className={`${width ? width : ''}`}>
           {formatter ? formatter(value) : (value as ReactNode)}
         </div>
       );
@@ -70,24 +70,24 @@ function PasswordManager({
   refreshData?: () => Promise<void>;
 }) {
   const [password, setPassword] = useState<string>(currentPassword);
-  const [newPassword, setNewPassword] = useState<string>("");
+  const [newPassword, setNewPassword] = useState<string>('');
   const [isChanging, setIsChanging] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleUpdatePassword = async () => {
     if (!newPassword.trim()) {
-      toast.error("La nueva contraseña no puede estar vacía");
+      toast.error('La nueva contraseña no puede estar vacía');
       return;
     }
 
     setIsChanging(true);
     setError(null);
     try {
-      const response = await fetch("/api/dashboard/empresas/password", {
-        method: "PATCH",
+      const response = await fetch('/api/dashboard/empresas/password', {
+        method: 'PATCH',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           rut,
@@ -97,25 +97,25 @@ function PasswordManager({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Error al actualizar la contraseña");
+        throw new Error(errorData.error || 'Error al actualizar la contraseña');
       }
 
       // Update the displayed password
       setPassword(newPassword.trim());
-      setNewPassword("");
+      setNewPassword('');
       onPasswordChange(newPassword.trim());
-      toast.success("Contraseña actualizada correctamente");
+      toast.success('Contraseña actualizada correctamente');
 
       // Refresh data if available
       if (refreshData) {
         await refreshData();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
+      setError(err instanceof Error ? err.message : 'Error desconocido');
       toast.error(
-        err instanceof Error ? err.message : "Error al actualizar la contraseña"
+        err instanceof Error ? err.message : 'Error al actualizar la contraseña'
       );
-      console.error("Error updating password:", err);
+      console.error('Error updating password:', err);
     } finally {
       setIsChanging(false);
     }
@@ -130,9 +130,12 @@ function PasswordManager({
       <div className="flex items-center space-x-2">
         <div className="relative flex-1">
           <Input
-            type={showPassword ? "text" : "password"}
-            value={password}
+            type={'text'}
+            value={showPassword ? password : '•'.repeat(password.length)}
             readOnly
+            name="pmCurrentPassword" // Cambiado a un identificador único
+            id="pmCurrentPassword" // Cambiado a un identificador único
+            autoFocus={false}
             className="pr-10"
             placeholder="Contraseña actual"
           />
@@ -156,8 +159,10 @@ function PasswordManager({
             onChange={(e) => setNewPassword(e.target.value)}
             placeholder="Nueva contraseña"
             className="flex-1"
+            name="newPassword"
+            id="newPassword"
             onKeyDown={(e) => {
-              if (e.key === "Enter" && newPassword.trim()) {
+              if (e.key === 'Enter' && newPassword.trim()) {
                 handleUpdatePassword();
               }
             }}
@@ -195,7 +200,7 @@ function DeleteButton({
   const handleDelete = async () => {
     if (
       !confirm(
-        "¿Está seguro que desea eliminar esta empresa? Esta acción no se puede deshacer."
+        '¿Está seguro que desea eliminar esta empresa? Esta acción no se puede deshacer.'
       )
     ) {
       return;
@@ -203,20 +208,20 @@ function DeleteButton({
 
     setIsDeleting(true);
     try {
-      const response = await fetch("/api/dashboard/empresas", {
-        method: "DELETE",
+      const response = await fetch('/api/dashboard/empresas', {
+        method: 'DELETE',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ rut }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Error al eliminar la empresa");
+        throw new Error(errorData.error || 'Error al eliminar la empresa');
       }
 
-      toast.success("Empresa eliminada correctamente");
+      toast.success('Empresa eliminada correctamente');
       onDelete();
 
       // Use refreshData instead of relying on onDelete to reload page
@@ -225,9 +230,9 @@ function DeleteButton({
       }
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Error al eliminar la empresa"
+        err instanceof Error ? err.message : 'Error al eliminar la empresa'
       );
-      console.error("Error deleting empresa:", err);
+      console.error('Error deleting empresa:', err);
     } finally {
       setIsDeleting(false);
     }
@@ -253,7 +258,7 @@ function DeleteButton({
 
 export const empresasColumns: ColumnDef<User>[] = [
   {
-    accessorKey: "edit",
+    accessorKey: 'edit',
     header: ({ column }: { column: Column<User, unknown> }) => {
       return <div>Editar</div>;
     },
@@ -279,10 +284,10 @@ export const empresasColumns: ColumnDef<User>[] = [
       const handleSave = async () => {
         try {
           setIsLoading(true);
-          const response = await fetch("/api/dashboard/empresas", {
-            method: "PATCH",
+          const response = await fetch('/api/dashboard/empresas', {
+            method: 'PATCH',
             headers: {
-              "Content-Type": "application/json",
+              'Content-Type': 'application/json',
             },
             body: JSON.stringify({
               rut: row.original.Rut,
@@ -291,10 +296,10 @@ export const empresasColumns: ColumnDef<User>[] = [
           });
 
           if (!response.ok) {
-            throw new Error("Error al actualizar los datos");
+            throw new Error('Error al actualizar los datos');
           }
 
-          toast.success("Datos actualizados correctamente");
+          toast.success('Datos actualizados correctamente');
           setDialogOpen(false);
 
           // Use refreshData instead of page reload
@@ -302,8 +307,8 @@ export const empresasColumns: ColumnDef<User>[] = [
             await refreshData();
           }
         } catch (error) {
-          console.error("Error saving changes:", error);
-          toast.error("Error al actualizar los datos");
+          console.error('Error saving changes:', error);
+          toast.error('Error al actualizar los datos');
         } finally {
           setIsLoading(false);
         }
@@ -314,6 +319,7 @@ export const empresasColumns: ColumnDef<User>[] = [
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <Button
               variant="ghost"
+              type="button"
               size="sm"
               className="h-8 w-8 p-0"
               onClick={(e) => {
@@ -340,8 +346,8 @@ export const empresasColumns: ColumnDef<User>[] = [
                     Contraseña de Acceso
                   </div>
                   <PasswordManager
-                    currentPassword={row.original.Empresa_C || ""}
-                    rut={row.original.Rut || ""}
+                    currentPassword={row.original.Empresa_C || ''}
+                    rut={row.original.Rut || ''}
                     onPasswordChange={(newPassword) => {
                       // Update the row data with the new password
                       row.original.Empresa_C = newPassword;
@@ -360,34 +366,38 @@ export const empresasColumns: ColumnDef<User>[] = [
                       className="flex flex-col space-y-1.5 bg-secondary/30 p-3 rounded-lg"
                     >
                       <span className="text-sm font-medium text-primary">
-                        {key === "ID" && "ID"}
-                        {key === "Rut" && "RUT"}
-                        {key === "Empresa" && "Nombre de la Empresa"}
-                        {key === "Operacion" && "Operación"}
-                        {key === "Encargado" && "Encargado"}
-                        {key === "Mail" && "Email"}
-                        {key === "Telefono" && "Teléfono"}
-                        {key === "Empresa_C" && "Contraseña"}
+                        {key === 'ID' && 'ID'}
+                        {key === 'Rut' && 'RUT'}
+                        {key === 'Empresa' && 'Nombre de la Empresa'}
+                        {key === 'Operacion' && 'Operación'}
+                        {key === 'Encargado' && 'Encargado'}
+                        {key === 'Mail' && 'Email'}
+                        {key === 'Telefono' && 'Teléfono'}
+                        {key === 'Empresa_C' && 'Contraseña'}
                       </span>
-                      {key === "Empresa_C" ? (
+                      {key === 'Empresa_C' ? (
                         <span className="text-sm text-muted-foreground">
-                          {value !== null && typeof value === "object"
+                          {value !== null && typeof value === 'object'
                             ? JSON.stringify(value)
                             : String(value)}
                         </span>
-                      ) : key === "ID" ? (
+                      ) : key === 'ID' ? (
                         <Input
                           value={
-                            (editedData[key as keyof User] as string) || ""
+                            (editedData[key as keyof User] as string) || ''
                           }
+                          name={key}
+                          id={key}
                           readOnly
                           className="mt-1 bg-gray-100 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none"
                         />
                       ) : (
                         <Input
                           value={
-                            (editedData[key as keyof User] as string) || ""
+                            (editedData[key as keyof User] as string) || ''
                           }
+                          name={key}
+                          id={key}
                           onChange={(e) =>
                             handleInputChange(key as keyof User, e.target.value)
                           }
@@ -410,7 +420,7 @@ export const empresasColumns: ColumnDef<User>[] = [
                     datos asociados. Esta acción no se puede deshacer.
                   </p>
                   <DeleteButton
-                    rut={row.original.Rut || ""}
+                    rut={row.original.Rut || ''}
                     onDelete={() => {
                       setDialogOpen(false);
                       // No need to reload the page
@@ -438,7 +448,7 @@ export const empresasColumns: ColumnDef<User>[] = [
                         Guardando...
                       </>
                     ) : (
-                      "Guardar"
+                      'Guardar'
                     )}
                   </Button>
                 </div>
@@ -450,15 +460,15 @@ export const empresasColumns: ColumnDef<User>[] = [
     },
     enableHiding: true,
     meta: {
-      label: "Acciones",
+      label: 'Acciones',
     },
   },
-  createColumn("ID", "ID", "w-16 text-center"),
-  createColumn("Rut", "RUT", "w-32 text-center"),
-  createColumn("Empresa", "Empresa", "min-w-[200px]"),
-  createColumn("Operacion", "Operación", "w-32 text-center"),
-  createColumn("Encargado", "Encargado", "min-w-[180px]"),
-  createColumn("Mail", "Email", "min-w-[200px]"),
-  createColumn("Telefono", "Teléfono", "w-32 text-center"),
-  createColumn("Empresa_C", "Contraseña", "min-w-[150px]"),
+  createColumn('ID', 'ID', 'w-16 text-center'),
+  createColumn('Rut', 'RUT', 'w-32 text-center'),
+  createColumn('Empresa', 'Empresa', 'min-w-[200px]'),
+  createColumn('Operacion', 'Operación', 'w-32 text-center'),
+  createColumn('Encargado', 'Encargado', 'min-w-[180px]'),
+  createColumn('Mail', 'Email', 'min-w-[200px]'),
+  createColumn('Telefono', 'Teléfono', 'w-32 text-center'),
+  createColumn('Empresa_C', 'Contraseña', 'min-w-[150px]'),
 ];
