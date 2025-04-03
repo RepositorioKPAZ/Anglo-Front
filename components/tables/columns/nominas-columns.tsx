@@ -23,6 +23,7 @@ import {
 import { useState, useEffect, useContext } from "react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import DocumentStatusCell from "@/components/DocumentStatusCell";
 
 // Create a type for the table context that includes refreshData
 interface TableContext {
@@ -76,6 +77,26 @@ const formatCurrency = (value: number) => {
 };
 
 export const nominasColumns: ColumnDef<NominaRow>[] = [
+  {
+    accessorKey: "document",
+    header: ({ column }: { column: Column<NominaRow, unknown> }) => {
+      return <div className="text-center">Documento</div>;
+    },
+    cell: ({ row }: { row: Row<NominaRow> }) => {
+      const rowId = row.original.Rut as string;
+      return (
+        <DocumentStatusCell
+          rowId={rowId}
+          rutEmpresa={row.original["Rut Empresa"]}
+          isAdmin={true}
+        />
+      );
+    },
+    enableHiding: true,
+    meta: {
+      label: "Documento",
+    },
+  },
   {
     accessorKey: "edit",
     header: ({ column }: { column: Column<NominaRow, unknown> }) => {

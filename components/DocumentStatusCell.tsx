@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   Paperclip,
   Download,
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { TableContext } from "@/components/tables/columns/nominas-columns";
 
 type DocumentMetadata = {
   id_doc?: number;
@@ -49,6 +50,9 @@ export default function DocumentStatusCell({
   const [documentExists, setDocumentExists] = useState(false);
   const [metadata, setMetadata] = useState<DocumentMetadata | null>(null);
   const [fileInputKey, setFileInputKey] = useState(Date.now()); // For resetting file input
+
+  // Get refreshData function from TableContext if available
+  const { refreshData } = useContext(TableContext);
 
   // Determine API base path based on user role
   const apiBase = "/api/postulaciones/nominas/documents";
@@ -83,6 +87,13 @@ export default function DocumentStatusCell({
     // Dispatch custom event that other DocumentStatusCell components can listen for
     const event = new CustomEvent(DOCUMENT_CHANGE_EVENT);
     window.dispatchEvent(event);
+
+    // If we have a refreshData function from TableContext, use it to refresh the entire table
+    if (refreshData) {
+      refreshData().catch((err) => {
+        console.error("Error refreshing table data:", err);
+      });
+    }
   };
 
   // Load document status when component mounts or when document change event fires

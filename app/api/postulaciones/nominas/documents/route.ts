@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getDocumentMetadata,
   saveDocument,
-  deleteDocument,
-  createSafeFileName
+  deleteDocument
 } from "@/lib/utils/db-document-utils";
 
 // GET endpoint to check if a document exists for a specific row
@@ -67,8 +66,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create safe filename
-    const safeFileName = createSafeFileName(rowId, file.name);
+    // Use the original file name
+    const fileName = file.name;
     
     // Convert file to buffer
     const bytes = await file.arrayBuffer();
@@ -77,7 +76,7 @@ export async function POST(request: NextRequest) {
     // Save to database
     const metadata = await saveDocument(
       rowId,
-      file.name, //safeFileName,
+      fileName,
       file.type,
       buffer,
       rutEmpresa

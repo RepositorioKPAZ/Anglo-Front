@@ -102,14 +102,4 @@ export async function deleteDocument(rowId: string): Promise<boolean> {
     console.error('Error deleting document from database:', error);
     return false;
   }
-}
-
-// Create a safe filename from the original name
-export function createSafeFileName(rowId: string, originalFileName: string): string {
-  // Remove special characters, replace spaces with underscores
-  const timestamp = Date.now();
-  const extension = '.pdf'; // Always .pdf for our purposes
-  const safeName = rowId.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-  
-  return `${safeName}_${timestamp}${extension}`;
 } 
