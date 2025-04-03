@@ -196,7 +196,7 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
                       <span className="text-sm font-medium text-primary">
                         {key}
                       </span>
-                      {key === "ID" ? (
+                      {key === "ID" || key === "Rut Empresa" ? (
                         <span className="text-sm text-muted-foreground">
                           {value !== null && typeof value === "object"
                             ? JSON.stringify(value)
