@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile } from "fs/promises";
-import path from "path";
-import fs from "fs";
-import { 
-  DOCUMENTS_DIR,
-  createSafeFileName, 
-  getDocumentRelativePath, 
-  saveDocumentMetadata,
+import {
   getDocumentMetadata,
+  saveDocument,
   deleteDocument,
-  ensureDirectoriesExist
-} from "@/lib/utils/document-utils";
+  createSafeFileName
+} from "@/lib/utils/db-document-utils";
 
 // GET endpoint to check if a document exists for a specific row
 export async function GET(request: NextRequest) {
@@ -25,7 +19,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const documentMetadata = getDocumentMetadata(rowId);
+    const documentMetadata = await getDocumentMetadata(rowId);
+    
+    // We don't want to return the actual document content in the metadata
+    if (documentMetadata && documentMetadata.contenido_documento) {
+      const { contenido_documento, ...metadataWithoutContent } = documentMetadata;
+      return NextResponse.json({
+        exists: true,
+        metadata: metadataWithoutContent,
+      });
+    }
 
     return NextResponse.json({
       exists: !!documentMetadata,
@@ -47,6 +50,7 @@ export async function POST(request: NextRequest) {
     
     const rowId = formData.get("rowId") as string;
     const file = formData.get("file") as File;
+    const rutEmpresa = formData.get("rutEmpresa") as string || '';
 
     if (!rowId || !file) {
       return NextResponse.json(
@@ -63,33 +67,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create safe filename and prepare file path
+    // Create safe filename
     const safeFileName = createSafeFileName(rowId, file.name);
-    const relativePath = getDocumentRelativePath(rowId, safeFileName);
-    const absolutePath = path.join(process.cwd(), "public", relativePath);
     
-    // Ensure the directory exists
-    ensureDirectoriesExist();
-    
-    // Convert file to buffer and save it
+    // Convert file to buffer
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    await writeFile(absolutePath, buffer);
 
-    // Save metadata
-    const metadata = {
+    // Save to database
+    const metadata = await saveDocument(
       rowId,
-      fileName: safeFileName,
-      uploadDate: new Date().toISOString(),
-      fileType: file.type,
-      filePath: relativePath,
-      fileSize: buffer.length,
-    };
-    
-    saveDocumentMetadata(metadata);
+      file.name, //safeFileName,
+      file.type,
+      buffer,
+      rutEmpresa
+    );
+
+    // Return success response without the actual document content
+    if (metadata && metadata.contenido_documento) {
+      const { contenido_documento, ...metadataWithoutContent } = metadata;
+      return NextResponse.json({
+        success: true,
+        metadata: metadataWithoutContent,
+      });
+    }
 
     return NextResponse.json({
-      success: true,
+      success: !!metadata,
       metadata,
     });
   } catch (error) {
@@ -114,7 +118,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const success = deleteDocument(rowId);
+    const success = await deleteDocument(rowId);
 
     if (!success) {
       return NextResponse.json(

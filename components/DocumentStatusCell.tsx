@@ -19,11 +19,11 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 type DocumentMetadata = {
+  id_doc?: number;
   rowId: string;
   fileName: string;
   uploadDate: string;
   fileType: string;
-  filePath: string;
   fileSize: number;
 };
 
@@ -31,12 +31,17 @@ type DocumentStatusCellProps = {
   rowId: string;
   isAdmin?: boolean;
   className?: string;
+  rutEmpresa?: string;
 };
+
+// Custom event name for document changes
+const DOCUMENT_CHANGE_EVENT = "document-status-change";
 
 export default function DocumentStatusCell({
   rowId,
   isAdmin = false,
   className,
+  rutEmpresa = "",
 }: DocumentStatusCellProps) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -73,9 +78,28 @@ export default function DocumentStatusCell({
     }
   };
 
-  // Load document status when component mounts
+  // Trigger document status refresh for all cells
+  const triggerDocumentChangeEvent = () => {
+    // Dispatch custom event that other DocumentStatusCell components can listen for
+    const event = new CustomEvent(DOCUMENT_CHANGE_EVENT);
+    window.dispatchEvent(event);
+  };
+
+  // Load document status when component mounts or when document change event fires
   useEffect(() => {
     checkDocument();
+
+    // Listen for document changes triggered by other cells
+    const handleDocumentChange = () => {
+      checkDocument();
+    };
+
+    window.addEventListener(DOCUMENT_CHANGE_EVENT, handleDocumentChange);
+
+    // Clean up event listener on unmount
+    return () => {
+      window.removeEventListener(DOCUMENT_CHANGE_EVENT, handleDocumentChange);
+    };
   }, [rowId]);
 
   // Handle file upload
@@ -96,6 +120,8 @@ export default function DocumentStatusCell({
       const formData = new FormData();
       formData.append("rowId", rowId);
       formData.append("file", file);
+      formData.append("rutEmpresa", rutEmpresa);
+      console.log("rutEmpresa!!!", rutEmpresa);
 
       const response = await fetch(apiBase, {
         method: "POST",
@@ -115,6 +141,9 @@ export default function DocumentStatusCell({
 
       // Reset file input
       setFileInputKey(Date.now());
+
+      // Trigger refresh for all document cells
+      triggerDocumentChangeEvent();
     } catch (error) {
       console.error("Error uploading document:", error);
       toast.error(
@@ -149,6 +178,9 @@ export default function DocumentStatusCell({
       setDocumentExists(false);
       setMetadata(null);
       toast.success("Documento eliminado correctamente");
+
+      // Trigger refresh for all document cells
+      triggerDocumentChangeEvent();
     } catch (error) {
       console.error("Error deleting document:", error);
       toast.error(
@@ -180,10 +212,11 @@ export default function DocumentStatusCell({
       return;
     }
 
-    // Open document in new tab (public path)
-    if (metadata.filePath) {
-      window.open(metadata.filePath, "_blank");
-    }
+    // Open document in a new tab with view=true param to display inline
+    window.open(
+      `${apiBase}/download?rowId=${encodeURIComponent(rowId)}&view=true`,
+      "_blank"
+    );
   };
 
   // Render loading state
@@ -202,7 +235,6 @@ export default function DocumentStatusCell({
           <Button
             variant="ghost"
             size="sm"
-            disabled
             className={`h-8 w-8 p-0 ${
               documentExists ? "text-blue-500" : "text-muted-foreground"
             }`}
@@ -225,7 +257,10 @@ export default function DocumentStatusCell({
           {documentExists && metadata && (
             <>
               <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                Subido: {new Date(metadata.uploadDate).toLocaleDateString()}
+                <div>{metadata.fileName}</div>
+                <div>
+                  Subido: {new Date(metadata.uploadDate).toLocaleDateString()}
+                </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleView}>

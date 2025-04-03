@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import fs from "fs";
-import { getDocumentMetadata } from "@/lib/utils/document-utils";
+import { getDocumentMetadata } from "@/lib/utils/db-document-utils";
 
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const rowId = url.searchParams.get("rowId");
+    const isView = url.searchParams.get("view") === "true";
 
     if (!rowId) {
       return NextResponse.json(
@@ -15,7 +14,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const metadata = getDocumentMetadata(rowId);
+    const metadata = await getDocumentMetadata(rowId);
     if (!metadata) {
       return NextResponse.json(
         { error: "No se encontró el documento" },
@@ -23,24 +22,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const filePath = path.join(process.cwd(), "public", metadata.filePath);
-    if (!fs.existsSync(filePath)) {
+    if (!metadata.contenido_documento) {
       return NextResponse.json(
-        { error: "El archivo no existe" },
+        { error: "El contenido del documento no está disponible" },
         { status: 404 }
       );
     }
 
-    // Read the file
-    const fileBuffer = fs.readFileSync(filePath);
+    // Set the appropriate headers
     const headers = new Headers();
     headers.set("Content-Type", "application/pdf");
-    headers.set(
-      "Content-Disposition",
-      `attachment; filename="${metadata.fileName}"`
-    );
+    
+    // If viewing, set inline disposition; otherwise, use attachment for download
+    if (isView) {
+      headers.set("Content-Disposition", `inline; filename="${metadata.fileName}"`);
+    } else {
+      headers.set("Content-Disposition", `attachment; filename="${metadata.fileName}"`);
+    }
 
-    return new NextResponse(fileBuffer, {
+    // Return the document buffer directly from the database
+    return new NextResponse(metadata.contenido_documento, {
       headers,
     });
   } catch (error) {

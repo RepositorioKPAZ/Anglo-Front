@@ -66,7 +66,13 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
     },
     cell: ({ row }: { row: Row<NominaRow> }) => {
       const rowId = row.original.Rut as string;
-      return <DocumentStatusCell rowId={rowId} isAdmin={true} />;
+      return (
+        <DocumentStatusCell
+          rowId={rowId}
+          rutEmpresa={row.original["Rut Empresa"]}
+          isAdmin={true}
+        />
+      );
     },
     enableHiding: true,
     meta: {
