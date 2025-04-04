@@ -14,6 +14,12 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import Spinner from "@/components/spinner";
 import { getAuthUser } from "@/app/db-auth-actions";
+import {
+  parseMoneyValue,
+  parseGradeValue,
+  parseAcademicYear,
+  formatCurrency,
+} from "@/lib/utils/data-transformations";
 
 export default function NominasPage() {
   const [nominasData, setNominasData] = useState<NominaRow[]>([]);
@@ -75,14 +81,6 @@ export default function NominasPage() {
     const value = e.target.value;
     setPasteData(value);
 
-    // Helper function to parse potentially formatted money values
-    const parseMoneyValue = (value: string): number => {
-      if (!value) return 0;
-      // Remove currency symbols, dots, commas and other non-numeric characters except the decimal point
-      const numericString = value.replace(/[^\d,-]/g, "").replace(",", ".");
-      return parseFloat(numericString) || 0;
-    };
-
     // Parse the pasted data immediately for preview
     if (value.trim()) {
       const rows = value.split("\n").map((row) => {
@@ -100,8 +98,8 @@ export default function NominasPage() {
           "Rut Beneficiario": values[9] || "",
           "Relacion con el Trabajador": values[10] || "",
           "Edad del Beneficiario": parseInt(values[11]) || 0,
-          "Año Academico": values[12] || "",
-          "Promedio de Notas": parseFloat(values[13]) || 0,
+          "Año Academico": parseAcademicYear(values[12]),
+          "Promedio de Notas": parseGradeValue(values[13]),
           "Tipo Beca": values[14] || "",
           "Razon Social": values[15] || "",
           "Rut Empresa": values[16] || "",
@@ -116,11 +114,6 @@ export default function NominasPage() {
     } else {
       setParsedRows([]);
     }
-  };
-
-  const formatCurrency = (value: number) => {
-    if (!value && value !== 0) return "";
-    return `$${value.toLocaleString("es-CL")}`;
   };
 
   const handlePaste = async () => {

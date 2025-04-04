@@ -15,6 +15,12 @@ import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import DocumentStatusCell from "@/components/DocumentStatusCell";
+import {
+  formatCurrency,
+  parseMoneyValue,
+  parseGradeValue,
+  parseAcademicYear,
+} from "@/lib/utils/data-transformations";
 
 // Helper function to create consistent column definitions
 function createColumn(
@@ -51,12 +57,6 @@ function createColumn(
     },
   };
 }
-
-// Format currency values
-const formatCurrency = (value: number) => {
-  if (!value && value !== 0) return "";
-  return `$${value.toLocaleString("es-CL")}`;
-};
 
 export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
   {
@@ -108,7 +108,57 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
       const handleSave = async () => {
         try {
           setIsLoading(true);
-          console.log("editedData Postulaciones", editedData);
+
+          // Apply data transformations to editedData
+          const transformedData = { ...editedData };
+
+          // Transform money fields if they exist in the edit data
+          if (
+            "Remuneracion Mes 1" in editedData &&
+            editedData["Remuneracion Mes 1"] !== undefined
+          ) {
+            transformedData["Remuneracion Mes 1"] = parseMoneyValue(
+              editedData["Remuneracion Mes 1"]
+            );
+          }
+          if (
+            "Remuneracion Mes 2" in editedData &&
+            editedData["Remuneracion Mes 2"] !== undefined
+          ) {
+            transformedData["Remuneracion Mes 2"] = parseMoneyValue(
+              editedData["Remuneracion Mes 2"]
+            );
+          }
+          if (
+            "Remuneracion Mes 3" in editedData &&
+            editedData["Remuneracion Mes 3"] !== undefined
+          ) {
+            transformedData["Remuneracion Mes 3"] = parseMoneyValue(
+              editedData["Remuneracion Mes 3"]
+            );
+          }
+
+          // Transform grade value if it exists
+          if (
+            "Promedio de Notas" in editedData &&
+            editedData["Promedio de Notas"] !== undefined
+          ) {
+            transformedData["Promedio de Notas"] = parseGradeValue(
+              editedData["Promedio de Notas"]
+            );
+          }
+
+          // Transform academic year if it exists
+          if (
+            "Año Academico" in editedData &&
+            editedData["Año Academico"] !== undefined
+          ) {
+            transformedData["Año Academico"] = parseAcademicYear(
+              editedData["Año Academico"]
+            );
+          }
+
+          console.log("editedData Postulaciones", transformedData);
           const response = await fetch("/api/postulaciones/nominas", {
             method: "PATCH",
             headers: {
@@ -116,7 +166,7 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
             },
             body: JSON.stringify({
               rowId: row.original.ID,
-              updatedData: editedData,
+              updatedData: transformedData,
             }),
           });
 
