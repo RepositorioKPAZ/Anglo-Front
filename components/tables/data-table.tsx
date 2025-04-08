@@ -104,6 +104,7 @@ export function DataTable<TData, TValue>({
     Empresa_C: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Custom filter function for multi-column search
   const multiColumnFilter: FilterFn<any> = (row, columnId, value, addMeta) => {
@@ -166,8 +167,26 @@ export function DataTable<TData, TValue>({
 
   const handleAddCompany = async () => {
     setIsSubmitting(true);
+    setFormError(null);
+
+    // Validate RUT format (simple format check)
+    const rutRegex = /^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/;
+    if (!rutRegex.test(newCompany.Rut)) {
+      setFormError("El RUT debe tener el formato xx.xxx.xxx-x");
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Validate email format (basic check)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newCompany.Mail)) {
+      setFormError("El correo electrónico no tiene un formato válido");
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
-      const response = await fetch("/api/empresas", {
+      const response = await fetch("/api/dashboard/empresas", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -176,9 +195,11 @@ export function DataTable<TData, TValue>({
       });
 
       const result = await response.json();
-
+      console.log("Resultado Crear Empresa", result);
       if (!response.ok) {
-        throw new Error(result.error || "Error al agregar la empresa");
+        const errorMessage = result.error || "Error al agregar la empresa";
+        setFormError(errorMessage);
+        throw new Error(errorMessage);
       }
 
       toast.success("Empresa agregada correctamente");
@@ -286,10 +307,21 @@ export function DataTable<TData, TValue>({
             )}
 
             {agregarEmpresaAdmin && (
-              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <Dialog
+                open={dialogOpen}
+                onOpenChange={(open) => {
+                  setDialogOpen(open);
+                  if (!open) {
+                    setFormError(null);
+                  }
+                }}
+              >
                 <Button
                   variant="outline"
-                  onClick={() => setDialogOpen(true)}
+                  onClick={() => {
+                    setFormError(null);
+                    setDialogOpen(true);
+                  }}
                   className="ml-auto"
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -384,6 +416,13 @@ export function DataTable<TData, TValue>({
                       />
                     </div>
                   </div>
+
+                  {formError && (
+                    <div className="bg-destructive/10 text-destructive px-4 py-2 rounded-md mt-2 text-sm">
+                      {formError}
+                    </div>
+                  )}
+
                   <DialogFooter>
                     <Button
                       variant="outline"

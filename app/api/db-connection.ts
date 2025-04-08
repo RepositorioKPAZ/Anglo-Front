@@ -48,7 +48,7 @@ export async function executeQuery<T>(query: string, params: any[] = []): Promis
     return results as T;
   } catch (error) {
     console.error('Error executing query:', error);
-    throw new Error('Failed to execute query');
+    throw error;
   } finally {
     if (connection) {
       connection.release();
