@@ -38,6 +38,19 @@ type DocumentStatusCellProps = {
 // Custom event name for document changes
 const DOCUMENT_CHANGE_EVENT = "document-status-change";
 
+// Utility function to format bytes to human-readable format
+const formatBytes = (bytes: number, decimals = 2) => {
+  if (bytes === 0) return "0 Bytes";
+
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+};
+
 export default function DocumentStatusCell({
   rowId,
   isAdmin = false,
@@ -46,9 +59,8 @@ export default function DocumentStatusCell({
 }: DocumentStatusCellProps) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [documentExists, setDocumentExists] = useState(false);
-  const [metadata, setMetadata] = useState<DocumentMetadata | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null); // Track which document is being deleted
+  const [documents, setDocuments] = useState<DocumentMetadata[]>([]); // Replace single document with array
   const [fileInputKey, setFileInputKey] = useState(Date.now()); // For resetting file input
 
   // Get refreshData function from TableContext if available
@@ -62,6 +74,7 @@ export default function DocumentStatusCell({
     if (!rowId) return;
 
     try {
+      console.log("Checking documents for rowId:", rowId);
       setLoading(true);
       const response = await fetch(
         `${apiBase}?rowId=${encodeURIComponent(rowId)}`
@@ -72,11 +85,30 @@ export default function DocumentStatusCell({
       }
 
       const data = await response.json();
-      setDocumentExists(data.exists);
-      setMetadata(data.metadata);
+      console.log("Document check response:", data);
+
+      // Handle both new and old API response formats for backward compatibility
+      if (Array.isArray(data.documents)) {
+        console.log(
+          "Setting documents from array:",
+          data.documents.length,
+          "documents"
+        );
+        // New format: array of documents
+        setDocuments(data.documents);
+      } else if (data.exists && data.metadata) {
+        console.log("Setting single document from metadata");
+        // Old format: single document
+        setDocuments(data.metadata ? [data.metadata] : []);
+      } else {
+        console.log("No documents found");
+        // No documents or empty array
+        setDocuments([]);
+      }
     } catch (error) {
       console.error("Error checking document:", error);
       toast.error("Error al verificar documento");
+      setDocuments([]);
     } finally {
       setLoading(false);
     }
@@ -116,42 +148,95 @@ export default function DocumentStatusCell({
   // Handle file upload
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.log("No file selected");
+      return;
+    }
+
+    console.log(
+      "File selected for upload:",
+      file.name,
+      "Size:",
+      file.size,
+      "Type:",
+      file.type
+    );
 
     // Validate file type
     if (file.type !== "application/pdf") {
       toast.error("Solo se permiten archivos PDF");
+      console.error("Invalid file type:", file.type);
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+    if (file.size > maxSize) {
+      toast.error(
+        `El archivo es demasiado grande. Tamaño máximo: ${formatBytes(maxSize)}`
+      );
+      console.error("File too large:", file.size, "Max size:", maxSize);
       return;
     }
 
     try {
       setUploading(true);
       toast.info("Subiendo documento...");
+      console.log("Starting upload for rowId:", rowId);
 
       const formData = new FormData();
       formData.append("rowId", rowId);
       formData.append("file", file);
       formData.append("rutEmpresa", rutEmpresa);
-      console.log("rutEmpresa!!!", rutEmpresa);
 
+      console.log(
+        "FormData prepared:",
+        "rowId:",
+        rowId,
+        "fileName:",
+        file.name,
+        "rutEmpresa:",
+        rutEmpresa
+      );
+
+      console.log("Sending POST request to:", apiBase);
       const response = await fetch(apiBase, {
         method: "POST",
         body: formData,
       });
 
+      console.log("Response status:", response.status);
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Error al subir documento");
+        const errorData = await response.json();
+        console.error("Upload error response:", errorData);
+        throw new Error(errorData.error || "Error al subir documento");
       }
 
       const result = await response.json();
+      console.log("Upload success response:", result);
 
-      setDocumentExists(true);
-      setMetadata(result.metadata);
+      // Handle both new and old API response formats for backward compatibility
+      if (result.metadata) {
+        console.log("Adding document with new format:", result.metadata);
+        // New format: metadata of the newly uploaded document
+        setDocuments((prev) => [...prev, result.metadata]);
+      } else if (result.exists && result.document) {
+        console.log("Replacing documents with old format:", result.document);
+        // Old format: complete document replacement
+        setDocuments([result.document]);
+      } else {
+        console.error("Invalid response format:", result);
+        throw new Error("Formato de respuesta no válido");
+      }
+
       toast.success("Documento subido correctamente");
 
       // Reset file input
       setFileInputKey(Date.now());
+
+      // Immediately check for documents again to ensure we have the latest data
+      await checkDocument();
 
       // Trigger refresh for all document cells
       triggerDocumentChangeEvent();
@@ -166,28 +251,39 @@ export default function DocumentStatusCell({
   };
 
   // Handle document deletion
-  const handleDelete = async () => {
+  const handleDelete = async (event: React.MouseEvent, id_doc: number) => {
+    event.preventDefault();
     if (!window.confirm("¿Está seguro que desea eliminar este documento?")) {
       return;
     }
 
     try {
-      setDeleting(true);
+      setDeleting(id_doc);
 
-      const response = await fetch(
-        `${apiBase}?rowId=${encodeURIComponent(rowId)}`,
-        {
-          method: "DELETE",
-        }
-      );
+      // Construct URL based on whether we have an id_doc
+      const deleteUrl = id_doc
+        ? `${apiBase}?rowId=${encodeURIComponent(rowId)}&id_doc=${id_doc}`
+        : `${apiBase}?rowId=${encodeURIComponent(rowId)}`;
+
+      const response = await fetch(deleteUrl, {
+        method: "DELETE",
+      });
 
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || "Error al eliminar documento");
       }
 
-      setDocumentExists(false);
-      setMetadata(null);
+      // If deleting a specific document, filter it out
+      if (id_doc) {
+        setDocuments((prevDocuments) =>
+          prevDocuments.filter((doc) => doc.id_doc !== id_doc)
+        );
+      } else {
+        // If using old API that deletes all documents
+        setDocuments([]);
+      }
+
       toast.success("Documento eliminado correctamente");
 
       // Trigger refresh for all document cells
@@ -198,36 +294,56 @@ export default function DocumentStatusCell({
         error instanceof Error ? error.message : "Error al eliminar documento"
       );
     } finally {
-      setDeleting(false);
+      setDeleting(null);
     }
   };
 
   // Handle document download
-  const handleDownload = () => {
-    if (!documentExists || !metadata) {
-      toast.error("No hay documento para descargar");
-      return;
-    }
+  const handleDownload = (event: React.MouseEvent, fileName: string) => {
+    event.preventDefault();
 
-    // Open download in new tab
-    window.open(
-      `${apiBase}/download?rowId=${encodeURIComponent(rowId)}`,
-      "_blank"
-    );
+    try {
+      if (!fileName) {
+        throw new Error("Nombre de archivo no válido");
+      }
+
+      // Construct URL based on whether we have a fileName
+      const downloadUrl = `${apiBase}/download?rowId=${encodeURIComponent(rowId)}${
+        fileName ? `&fileName=${encodeURIComponent(fileName)}` : ""
+      }`;
+
+      // Open download in new tab
+      window.open(downloadUrl, "_blank");
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Error al descargar documento"
+      );
+    }
   };
 
   // Handle document view
-  const handleView = () => {
-    if (!documentExists || !metadata) {
-      toast.error("No hay documento para visualizar");
-      return;
-    }
+  const handleView = (event: React.MouseEvent, fileName: string) => {
+    event.preventDefault();
 
-    // Open document in a new tab with view=true param to display inline
-    window.open(
-      `${apiBase}/download?rowId=${encodeURIComponent(rowId)}&view=true`,
-      "_blank"
-    );
+    try {
+      if (!fileName) {
+        throw new Error("Nombre de archivo no válido");
+      }
+
+      // Construct URL based on whether we have a fileName
+      const viewUrl = `${apiBase}/download?rowId=${encodeURIComponent(rowId)}${
+        fileName ? `&fileName=${encodeURIComponent(fileName)}` : ""
+      }&view=true`;
+
+      // Open document in a new tab with view=true param to display inline
+      window.open(viewUrl, "_blank");
+    } catch (error) {
+      console.error("Error viewing document:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Error al visualizar documento"
+      );
+    }
   };
 
   // Render loading state
@@ -247,85 +363,130 @@ export default function DocumentStatusCell({
             variant="ghost"
             size="sm"
             className={`h-8 w-8 p-0 ${
-              documentExists ? "text-blue-500" : "text-muted-foreground"
+              documents.length > 0 ? "text-blue-500" : "text-muted-foreground"
             }`}
+            title={
+              documents.length > 0
+                ? `${documents.length} ${documents.length === 1 ? "documento adjunto" : "documentos adjuntos"}`
+                : "Subir documento"
+            }
           >
-            {documentExists ? (
-              <Paperclip className="h-4 w-4" />
+            {documents.length > 0 ? (
+              <div className="relative">
+                <Paperclip className="h-4 w-4" />
+                {documents.length > 1 && (
+                  <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                    {documents.length}
+                  </span>
+                )}
+              </div>
             ) : (
               <Upload className="h-4 w-4" />
             )}
             <span className="sr-only">
-              {documentExists ? "Documento adjunto" : "Subir documento"}
+              {documents.length > 0 ? "Documentos adjuntos" : "Subir documento"}
             </span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>
-            {documentExists ? "Documento PDF" : "Sin documento"}
+        <DropdownMenuContent align="end" className="w-60">
+          <DropdownMenuLabel className="flex justify-between items-center">
+            <span>
+              {documents.length > 0
+                ? `${documents.length} ${documents.length === 1 ? "Documento" : "Documentos"} PDF`
+                : "Sin documentos"}
+            </span>
+            {documents.length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                {formatBytes(
+                  documents.reduce((acc, doc) => acc + doc.fileSize, 0)
+                )}
+              </div>
+            )}
           </DropdownMenuLabel>
 
-          {documentExists && metadata && (
-            <>
-              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                <div>{metadata.fileName}</div>
-                <div>
-                  Subido: {new Date(metadata.uploadDate).toLocaleDateString()}
+          {documents.length > 0 && (
+            <div className="max-h-60 overflow-y-auto">
+              {documents.map((doc) => (
+                <div
+                  key={doc.id_doc}
+                  className="px-2 py-1.5 border-b last:border-b-0 hover:bg-muted/50"
+                >
+                  <div className="text-xs font-normal text-muted-foreground mb-1">
+                    <div className="font-medium truncate" title={doc.fileName}>
+                      {doc.fileName}
+                    </div>
+                    <div className="flex justify-between">
+                      <span>
+                        {new Date(doc.uploadDate).toLocaleDateString()}
+                      </span>
+                      <span>{formatBytes(doc.fileSize)}</span>
+                    </div>
+                  </div>
+                  <div className="flex space-x-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={(e) => handleView(e, doc.fileName)}
+                    >
+                      <FileText className="mr-1 h-3 w-3" />
+                      <span>Ver</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={(e) => handleDownload(e, doc.fileName)}
+                    >
+                      <Download className="mr-1 h-3 w-3" />
+                      <span>Descargar</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-destructive"
+                      onClick={(e) => handleDelete(e, doc.id_doc!)}
+                      disabled={deleting === doc.id_doc}
+                    >
+                      {deleting === doc.id_doc ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="mr-1 h-3 w-3" />
+                      )}
+                      <span>Eliminar</span>
+                    </Button>
+                  </div>
                 </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleView}>
-                <FileText className="mr-2 h-4 w-4" />
-                <span>Ver documento</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDownload}>
-                <Download className="mr-2 h-4 w-4" />
-                <span>Descargar</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleDelete}
-                disabled={deleting}
-                className="text-destructive focus:text-destructive"
-              >
-                {deleting ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="mr-2 h-4 w-4" />
-                )}
-                <span>Eliminar</span>
-              </DropdownMenuItem>
-            </>
+              ))}
+            </div>
           )}
 
-          {!documentExists && (
-            <>
-              <DropdownMenuSeparator />
-              <div className="p-2">
-                <label className="flex items-center cursor-pointer hover:bg-accent hover:text-accent-foreground h-8 px-2 py-1.5 text-sm rounded-sm">
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="application/pdf"
-                    onChange={handleUpload}
-                    key={fileInputKey}
-                    disabled={uploading}
-                  />
-                  {uploading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      <span>Subiendo...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="mr-2 h-4 w-4" />
-                      <span>Subir PDF</span>
-                    </>
-                  )}
-                </label>
-              </div>
-            </>
-          )}
+          <DropdownMenuSeparator />
+
+          {/* Always show upload option */}
+          <div className="p-2">
+            <label className="flex items-center cursor-pointer hover:bg-accent hover:text-accent-foreground h-8 px-2 py-1.5 text-sm rounded-sm">
+              <input
+                type="file"
+                className="hidden"
+                accept="application/pdf"
+                onChange={handleUpload}
+                key={fileInputKey}
+                disabled={uploading}
+              />
+              {uploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <span>Subiendo...</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-2 h-4 w-4" />
+                  <span>Subir PDF</span>
+                </>
+              )}
+            </label>
+          </div>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
