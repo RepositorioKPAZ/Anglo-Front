@@ -39,7 +39,14 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Download, Settings, Plus, RefreshCw } from "lucide-react";
+import {
+  Download,
+  Settings,
+  Plus,
+  RefreshCw,
+  FileDown,
+  Loader2,
+} from "lucide-react";
 import { exportToExcel } from "@/lib/utils/excel-export";
 import { generatePassword } from "@/lib/utils/password-utils";
 import {
@@ -68,6 +75,9 @@ interface DataTableProps<TData, TValue> {
   exportFileName?: string;
   agregarEmpresaAdmin?: boolean;
   refreshData?: () => Promise<void>;
+  enableFileDownload?: boolean;
+  fileDownloadUrl?: string;
+  fileDownloadParams?: Record<string, string>;
 }
 
 export function DataTable<TData, TValue>({
@@ -84,6 +94,9 @@ export function DataTable<TData, TValue>({
   exportFileName = "exported-data",
   agregarEmpresaAdmin = false,
   refreshData,
+  enableFileDownload = false,
+  fileDownloadUrl,
+  fileDownloadParams = {},
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -105,6 +118,7 @@ export function DataTable<TData, TValue>({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Custom filter function for multi-column search
   const multiColumnFilter: FilterFn<any> = (row, columnId, value, addMeta) => {
@@ -163,6 +177,110 @@ export function DataTable<TData, TValue>({
 
   const handleExportToExcel = () => {
     exportToExcel(data, exportFileName);
+  };
+
+  const handleFileDownload = async () => {
+    if (!fileDownloadUrl) {
+      toast.error("URL de descarga no especificada");
+      return;
+    }
+
+    try {
+      setIsDownloading(true);
+      toast.info("Preparando archivos para descargar...");
+
+      const queryParams = new URLSearchParams(fileDownloadParams).toString();
+      const url = `${fileDownloadUrl}${queryParams ? `?${queryParams}` : ""}`;
+
+      // Show a toast with longer duration for large downloads
+      const downloadToast = toast.loading(
+        "Descargando archivos. Esto puede tardar varios minutos para archivos grandes...",
+        {
+          duration: 120000, // 2 minutes
+        }
+      );
+
+      // Fetch the file from the server
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        // Try to parse error message from JSON response
+        try {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error ||
+              `Error: ${response.status} ${response.statusText}`
+          );
+        } catch (jsonError) {
+          // If response is not JSON, use status text
+          throw new Error(`Error: ${response.status} ${response.statusText}`);
+        }
+      }
+
+      // Check if response is empty
+      const contentLength = response.headers.get("content-length");
+      if (contentLength === "0") {
+        throw new Error("No se recibieron archivos del servidor");
+      }
+
+      // Get the content disposition header to extract the filename
+      const contentDisposition = response.headers.get("content-disposition");
+      let filename = "files.zip";
+
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // Update progress toast
+      toast.loading("Recibiendo archivos del servidor...", {
+        id: downloadToast,
+      });
+
+      // Convert the response to a blob
+      const blob = await response.blob();
+
+      // Check if the blob is valid
+      if (blob.size === 0) {
+        throw new Error("El archivo descargado está vacío");
+      }
+
+      // Update progress toast
+      toast.loading("Iniciando descarga...", {
+        id: downloadToast,
+      });
+
+      // Create a download link and trigger download
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      // Release the blob URL after a delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(downloadUrl);
+      }, 100);
+
+      // Close the progress toast and show success
+      toast.dismiss(downloadToast);
+      toast.success(
+        `Archivos descargados correctamente (${(blob.size / (1024 * 1024)).toFixed(2)} MB)`
+      );
+    } catch (error) {
+      console.error("Error al descargar archivos:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Error al descargar los archivos"
+      );
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handleAddCompany = async () => {
@@ -229,10 +347,10 @@ export function DataTable<TData, TValue>({
       <TableContext.Provider value={{ refreshData }}>
         {title && <h1 className="text-xl font-semibold mb-4">{title}</h1>}
 
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-4">
-          <div className="flex flex-col md:flex-row md:items-center gap-4">
+        <div className="flex flex-col space-y-4 mb-4">
+          <div className="flex flex-wrap items-center gap-2">
             {showEntries && (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 me-3">
                 <div>Mostrar</div>
                 <select
                   className="border rounded px-2 py-1 bg-white"
@@ -251,205 +369,243 @@ export function DataTable<TData, TValue>({
               </div>
             )}
 
-            {enableColumnVisibility && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="ml-auto">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Columnas
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="max-h-[400px] overflow-y-auto"
-                >
-                  {table
-                    .getAllColumns()
-                    .filter((column) => column.getCanHide())
-                    .map((column) => {
-                      return (
-                        <DropdownMenuCheckboxItem
-                          key={column.id}
-                          className="capitalize"
-                          checked={column.getIsVisible()}
-                          onCheckedChange={(value) =>
-                            column.toggleVisibility(!!value)
-                          }
-                        >
-                          {column.columnDef.meta?.label || column.id}
-                        </DropdownMenuCheckboxItem>
-                      );
-                    })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            <div className="flex flex-wrap gap-2">
+              {enableColumnVisibility && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Columnas
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="max-h-[400px] overflow-y-auto"
+                  >
+                    {table
+                      .getAllColumns()
+                      .filter((column) => column.getCanHide())
+                      .map((column) => {
+                        return (
+                          <DropdownMenuCheckboxItem
+                            key={column.id}
+                            className="capitalize"
+                            checked={column.getIsVisible()}
+                            onCheckedChange={(value) =>
+                              column.toggleVisibility(!!value)
+                            }
+                          >
+                            {column.columnDef.meta?.label || column.id}
+                          </DropdownMenuCheckboxItem>
+                        );
+                      })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
-            {enableExport && (
-              <Button
-                variant="outline"
-                onClick={handleExportToExcel}
-                className="ml-auto"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Exportar
-              </Button>
-            )}
-
-            {refreshData && (
-              <Button
-                variant="outline"
-                onClick={refreshData}
-                className="ml-auto"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Actualizar
-              </Button>
-            )}
-
-            {agregarEmpresaAdmin && (
-              <Dialog
-                open={dialogOpen}
-                onOpenChange={(open) => {
-                  setDialogOpen(open);
-                  if (!open) {
-                    setFormError(null);
-                  }
-                }}
-              >
+              {enableExport && (
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    setFormError(null);
-                    setDialogOpen(true);
-                  }}
-                  className="ml-auto"
+                  onClick={handleExportToExcel}
+                  className="group"
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Agregar Empresa
-                </Button>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Agregar Nueva Empresa</DialogTitle>
-                  </DialogHeader>
-                  <div className="grid grid-cols-2 gap-4 py-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">RUT</label>
-                      <Input
-                        value={newCompany.Rut}
-                        onChange={(e) =>
-                          setNewCompany({ ...newCompany, Rut: e.target.value })
-                        }
-                        placeholder="Ingrese el RUT"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">
-                        Nombre de la Empresa
-                      </label>
-                      <Input
-                        value={newCompany.Empresa}
-                        onChange={(e) =>
-                          setNewCompany({
-                            ...newCompany,
-                            Empresa: e.target.value,
-                          })
-                        }
-                        placeholder="Ingrese el nombre de la empresa"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Operación</label>
-                      <Input
-                        value={newCompany.Operacion}
-                        onChange={(e) =>
-                          setNewCompany({
-                            ...newCompany,
-                            Operacion: e.target.value,
-                          })
-                        }
-                        placeholder="Ingrese la operación"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Encargado</label>
-                      <Input
-                        value={newCompany.Encargado}
-                        onChange={(e) =>
-                          setNewCompany({
-                            ...newCompany,
-                            Encargado: e.target.value,
-                          })
-                        }
-                        placeholder="Ingrese el nombre del encargado"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Email</label>
-                      <Input
-                        value={newCompany.Mail}
-                        onChange={(e) =>
-                          setNewCompany({ ...newCompany, Mail: e.target.value })
-                        }
-                        placeholder="Ingrese el email"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Teléfono</label>
-                      <Input
-                        value={newCompany.Telefono}
-                        onChange={(e) =>
-                          setNewCompany({
-                            ...newCompany,
-                            Telefono: e.target.value,
-                          })
-                        }
-                        placeholder="Ingrese el teléfono"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Contraseña</label>
-                      <Input
-                        value={newCompany.Empresa_C}
-                        readOnly
-                        placeholder="La contraseña será generada automáticamente"
-                        className="flex-1"
-                      />
-                    </div>
+                  <Download className="h-4 w-4 mr-2" />
+                  <div className="flex gap-1 items-end">
+                    <span>Exportar</span>
+                    <span className="text-xs text-muted-foreground group-hover:text-white duratio-200">
+                      .xlsx
+                    </span>
                   </div>
+                </Button>
+              )}
 
-                  {formError && (
-                    <div className="bg-destructive/10 text-destructive px-4 py-2 rounded-md mt-2 text-sm">
-                      {formError}
-                    </div>
+              {enableFileDownload && fileDownloadUrl && (
+                <Button
+                  variant="outline"
+                  onClick={handleFileDownload}
+                  className="group"
+                  disabled={isDownloading}
+                >
+                  {isDownloading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <span>Descargando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileDown className="h-4 w-4 mr-2" />
+                      <div className="flex gap-1 items-end">
+                        <span>Descargar Archivos</span>
+                      </div>
+                    </>
                   )}
+                </Button>
+              )}
 
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => setDialogOpen(false)}
-                      disabled={isSubmitting}
-                    >
-                      Cancelar
-                    </Button>
-                    <Button onClick={handleAddCompany} disabled={isSubmitting}>
-                      {isSubmitting ? "Guardando..." : "Guardar"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            )}
+              {refreshData && (
+                <Button variant="outline" onClick={refreshData}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Actualizar
+                </Button>
+              )}
+
+              {agregarEmpresaAdmin && (
+                <Dialog
+                  open={dialogOpen}
+                  onOpenChange={(open) => {
+                    setDialogOpen(open);
+                    if (!open) {
+                      setFormError(null);
+                    }
+                  }}
+                >
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setFormError(null);
+                      setDialogOpen(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Agregar Empresa
+                  </Button>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Agregar Nueva Empresa</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">RUT</label>
+                        <Input
+                          value={newCompany.Rut}
+                          onChange={(e) =>
+                            setNewCompany({
+                              ...newCompany,
+                              Rut: e.target.value,
+                            })
+                          }
+                          placeholder="Ingrese el RUT"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          Nombre de la Empresa
+                        </label>
+                        <Input
+                          value={newCompany.Empresa}
+                          onChange={(e) =>
+                            setNewCompany({
+                              ...newCompany,
+                              Empresa: e.target.value,
+                            })
+                          }
+                          placeholder="Ingrese el nombre de la empresa"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Operación</label>
+                        <Input
+                          value={newCompany.Operacion}
+                          onChange={(e) =>
+                            setNewCompany({
+                              ...newCompany,
+                              Operacion: e.target.value,
+                            })
+                          }
+                          placeholder="Ingrese la operación"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Encargado</label>
+                        <Input
+                          value={newCompany.Encargado}
+                          onChange={(e) =>
+                            setNewCompany({
+                              ...newCompany,
+                              Encargado: e.target.value,
+                            })
+                          }
+                          placeholder="Ingrese el nombre del encargado"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Email</label>
+                        <Input
+                          value={newCompany.Mail}
+                          onChange={(e) =>
+                            setNewCompany({
+                              ...newCompany,
+                              Mail: e.target.value,
+                            })
+                          }
+                          placeholder="Ingrese el email"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Teléfono</label>
+                        <Input
+                          value={newCompany.Telefono}
+                          onChange={(e) =>
+                            setNewCompany({
+                              ...newCompany,
+                              Telefono: e.target.value,
+                            })
+                          }
+                          placeholder="Ingrese el teléfono"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          Contraseña
+                        </label>
+                        <Input
+                          value={newCompany.Empresa_C}
+                          readOnly
+                          placeholder="La contraseña será generada automáticamente"
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+
+                    {formError && (
+                      <div className="bg-destructive/10 text-destructive px-4 py-2 rounded-md mt-2 text-sm">
+                        {formError}
+                      </div>
+                    )}
+
+                    <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+                      <Button
+                        variant="outline"
+                        onClick={() => setDialogOpen(false)}
+                        disabled={isSubmitting}
+                        className="w-full sm:w-auto"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        onClick={handleAddCompany}
+                        disabled={isSubmitting}
+                        className="w-full sm:w-auto"
+                      >
+                        {isSubmitting ? "Guardando..." : "Guardar"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
           </div>
 
           {(searchKey || searchKeys) && (
-            <div className="flex items-center justify-end space-x-2 pe-1 w-full">
-              <div>Buscar:</div>
+            <div className="flex items-center space-x-2 w-full">
+              <div className="whitespace-nowrap">Buscar:</div>
               <Input
                 placeholder={searchPlaceholder}
                 value={searchValue}
                 onChange={(event) => {
                   setSearchValue(event.target.value);
                 }}
-                className="max-w-md"
+                className="max-w-full"
               />
             </div>
           )}

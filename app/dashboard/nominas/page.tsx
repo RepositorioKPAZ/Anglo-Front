@@ -104,6 +104,9 @@ export default function NominasPage() {
           exportFileName="nominas-trabajadores"
           // agregarRegistroAdmin={true}
           refreshData={fetchNominas}
+          enableFileDownload={true}
+          fileDownloadUrl="/api/files/download"
+          fileDownloadParams={{ tableId: "nominas" }}
         />
       </div>
     </div>
