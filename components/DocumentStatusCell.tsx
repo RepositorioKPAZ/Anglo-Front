@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect, useContext } from "react";
 import {
   Paperclip,
@@ -10,7 +11,6 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
