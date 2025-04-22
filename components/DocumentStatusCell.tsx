@@ -464,8 +464,8 @@ export default function DocumentStatusCell({
           <DropdownMenuSeparator />
 
           {/* Always show upload option */}
-          <div className="p-2">
-            <label className="flex items-center cursor-pointer hover:bg-accent hover:text-accent-foreground h-8 px-2 py-1.5 text-sm rounded-sm">
+          <div className="p-2 flex flex-col items-center">
+            <label className="flex items-center cursor-pointer hover:bg-accent hover:text-accent-foreground duration-200 h-8 px-2 py-1.5 text-sm rounded-sm w-full justify-center bg-blue-500 text-white">
               <input
                 type="file"
                 className="hidden"
@@ -486,6 +486,9 @@ export default function DocumentStatusCell({
                 </>
               )}
             </label>
+            <span className="text-xs text-muted-foreground mt-1">
+              (Tamaño máximo 10MB)
+            </span>
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
