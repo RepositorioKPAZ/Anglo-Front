@@ -1,20 +1,33 @@
-# dependencias y builds
+# Node and build output
 node_modules
 .next
-.vscode
 build
+.temp
+coverage
 
-# control de versiones
+# Dev tools and system files
+.vscode
+.DS_Store
+
+# Git
 .git
 .gitignore
 
-# archivos temporales y logs
-*.log
-*.pem
-*.tsbuildinfo
-
-# entornos
+# Env and deployment
 .vercel
 
-# cobertura
-coverage
+# Configs and internal notes
+*.md
+*.tsbuildinfo
+
+# Logs and keys
+*.log
+*.pem
+
+# archivos de configuración
+README-file-download.md
+.testing-checklist.md
+.multi-document-implementation.md
+.instructions.md
+.implementation-summary.md
+.backend-notes.md

@@ -164,6 +164,13 @@ export async function saveDocument(
       throw new Error("Missing required parameters for saving document");
     }
 
+    // Check if a document with the same filename already exists for this rowId
+    const existingDoc = await getDocumentByFileName(rowId, fileName);
+    if (existingDoc) {
+      console.log("Document with the same filename already exists for this RUT");
+      throw new Error("Ya existe un documento con el mismo nombre para este trabajador");
+    }
+
     // Insert new document (always add as a new document)
     const query = `
       INSERT INTO documentosajuntos (

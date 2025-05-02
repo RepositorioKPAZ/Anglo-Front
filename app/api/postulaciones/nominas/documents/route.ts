@@ -161,12 +161,15 @@ export async function POST(request: NextRequest) {
       });
     } catch (dbError) {
       console.error("Database error while saving document:", dbError);
-      throw dbError; // Re-throw to be caught by the outer try-catch
+      return NextResponse.json(
+        { error: dbError instanceof Error ? dbError.message : "Error al subir el documento" },
+        { status: 400 }
+      );
     }
   } catch (error) {
     console.error("Error uploading document:", error);
     return NextResponse.json(
-      { error: "Error al subir el documento" },
+      { error: error instanceof Error ? error.message : "Error al subir el documento" },
       { status: 500 }
     );
   }

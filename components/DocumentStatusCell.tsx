@@ -62,6 +62,7 @@ export default function DocumentStatusCell({
   const [deleting, setDeleting] = useState<number | null>(null); // Track which document is being deleted
   const [documents, setDocuments] = useState<DocumentMetadata[]>([]); // Replace single document with array
   const [fileInputKey, setFileInputKey] = useState(Date.now()); // For resetting file input
+  const [uploadError, setUploadError] = useState<string | null>(null); // Track upload errors
 
   // Get refreshData function from TableContext if available
   const { refreshData } = useContext(TableContext);
@@ -162,8 +163,12 @@ export default function DocumentStatusCell({
       file.type
     );
 
+    // Clear previous error messages
+    setUploadError(null);
+
     // Validate file type
     if (file.type !== "application/pdf") {
+      setUploadError("Solo se permiten archivos PDF");
       toast.error("Solo se permiten archivos PDF");
       console.error("Invalid file type:", file.type);
       return;
@@ -172,9 +177,9 @@ export default function DocumentStatusCell({
     // Validate file size (max 10MB)
     const maxSize = 10 * 1024 * 1024; // 10MB in bytes
     if (file.size > maxSize) {
-      toast.error(
-        `El archivo es demasiado grande. Tamaño máximo: ${formatBytes(maxSize)}`
-      );
+      const errorMsg = `El archivo es demasiado grande. Tamaño máximo: ${formatBytes(maxSize)}`;
+      setUploadError(errorMsg);
+      toast.error(errorMsg);
       console.error("File too large:", file.size, "Max size:", maxSize);
       return;
     }
@@ -210,7 +215,9 @@ export default function DocumentStatusCell({
       if (!response.ok) {
         const errorData = await response.json();
         console.error("Upload error response:", errorData);
-        throw new Error(errorData.error || "Error al subir documento");
+        const errorMessage = errorData.error || "Error al subir documento";
+        setUploadError(errorMessage);
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
@@ -227,7 +234,9 @@ export default function DocumentStatusCell({
         setDocuments([result.document]);
       } else {
         console.error("Invalid response format:", result);
-        throw new Error("Formato de respuesta no válido");
+        const errorMessage = "Formato de respuesta no válido";
+        setUploadError(errorMessage);
+        throw new Error(errorMessage);
       }
 
       toast.success("Documento subido correctamente");
@@ -242,9 +251,10 @@ export default function DocumentStatusCell({
       triggerDocumentChangeEvent();
     } catch (error) {
       console.error("Error uploading document:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Error al subir documento"
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : "Error al subir documento";
+      setUploadError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setUploading(false);
     }
@@ -357,7 +367,14 @@ export default function DocumentStatusCell({
 
   return (
     <div className={`flex items-center justify-center ${className}`}>
-      <DropdownMenu>
+      <DropdownMenu
+        onOpenChange={(open) => {
+          if (!open) {
+            // Clear error message when dropdown is closed
+            setUploadError(null);
+          }
+        }}
+      >
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
@@ -465,6 +482,11 @@ export default function DocumentStatusCell({
 
           {/* Always show upload option */}
           <div className="p-2 flex flex-col items-center">
+            {uploadError && (
+              <div className="mb-2 p-2 text-xs text-white bg-destructive rounded-sm w-full">
+                {uploadError}
+              </div>
+            )}
             <label className="flex items-center cursor-pointer hover:bg-accent hover:text-accent-foreground duration-200 h-8 px-2 py-1.5 text-sm rounded-sm w-full justify-center bg-blue-500 text-white">
               <input
                 type="file"
