@@ -79,10 +79,7 @@ export async function GET(request: NextRequest) {
 
     if (!documents || documents.length === 0) {
       console.log("No se encontraron documentos para la tabla especificada");
-      return NextResponse.json(
-        { error: "No se encontraron documentos para la tabla especificada" },
-        { status: 404 }
-      );
+      return new NextResponse(null, { status: 204 });
     }
 
     console.log(`Encontrados ${documents.length} documentos para incluir en el archivo zip`);
@@ -192,6 +189,10 @@ async function createZipWithDocuments(documents: DocumentMetadata[], tableId: st
   let addedCount = 0;
   let errorCount = 0;
 
+  // Create a timestamp for the parent folder
+  const timestamp = new Date().toISOString().slice(0, 10);
+  const parentFolderName = `${tableId}-files-${timestamp}`;
+
   // For each document, add it to the archive
   for (const doc of documents) {
     try {
@@ -204,9 +205,9 @@ async function createZipWithDocuments(documents: DocumentMetadata[], tableId: st
       // Create a folder name based on the rowId (usually RUT)
       const folderName = doc.rowId ? doc.rowId.replace(/[^a-zA-Z0-9-_]/g, '_') : 'unknown';
       
-      // Add the file to the archive in a folder named after the rowId
+      // Add the file to the archive in a folder structure: parentFolder/rowId/filename
       archive.append(doc.contenido_documento, { 
-        name: `${folderName}/${doc.fileName}` 
+        name: `${parentFolderName}/${folderName}/${doc.fileName}` 
       });
       
       addedCount++;
@@ -227,7 +228,6 @@ async function createZipWithDocuments(documents: DocumentMetadata[], tableId: st
   return new Promise<{ zipBuffer: Buffer; filename: string }>((resolve) => {
     archive.on("end", () => {
       const zipBuffer = Buffer.concat(chunks);
-      const timestamp = new Date().toISOString().slice(0, 10);
       const filename = `${tableId}-files-${timestamp}.zip`;
       resolve({ zipBuffer, filename });
     });

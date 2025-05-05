@@ -7,7 +7,7 @@ import { NominaRow } from "@/lib/types/user";
 import { Plus, ClipboardPaste, Info, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
+import { useToast } from "@/components/ui/use-toast";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +31,7 @@ export default function NominasPage() {
   const [showPasteArea, setShowPasteArea] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
   const [userRut, setUserRut] = useState<string | null>(null);
-
+  const { toast } = useToast();
   // First, get the authenticated user
   useEffect(() => {
     async function fetchUser() {
@@ -118,7 +118,10 @@ export default function NominasPage() {
 
   const handlePaste = async () => {
     if (!pasteData.trim()) {
-      toast.error("Por favor, pegue los datos primero");
+      toast({
+        title: "Por favor, pegue los datos primero",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -130,16 +133,19 @@ export default function NominasPage() {
       );
 
       if (filteredRows.length === 0) {
-        toast.error("No hay filas con RUT de empresa válido");
+        toast({
+          title: "No hay filas con RUT de empresa válido",
+          variant: "destructive",
+        });
         setIsPasting(false);
         return;
       }
 
       // Show notification about filtered rows
       if (filteredRows.length < parsedRows.length) {
-        toast.info(
-          `Se han filtrado ${parsedRows.length - filteredRows.length} filas que no coinciden con su RUT de empresa`
-        );
+        toast({
+          title: `Se han filtrado ${parsedRows.length - filteredRows.length} filas que no coinciden con su RUT de empresa`,
+        });
       }
 
       const response = await fetch("/api/postulaciones/nominas", {
@@ -166,12 +172,16 @@ export default function NominasPage() {
       setPasteData("");
       setParsedRows([]);
       setShowPasteArea(false);
-      toast.success("Datos agregados correctamente");
+      toast({
+        title: "Datos agregados correctamente",
+      });
     } catch (err) {
       console.error("Error pasting data:", err);
-      toast.error(
-        err instanceof Error ? err.message : "Error al agregar los datos"
-      );
+      toast({
+        title:
+          err instanceof Error ? err.message : "Error al agregar los datos",
+        variant: "destructive",
+      });
     } finally {
       setIsPasting(false);
     }

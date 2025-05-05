@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { useState, useEffect, useContext } from "react";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
+import { useToast } from "@/components/ui/use-toast";
 import DocumentStatusCell from "@/components/DocumentStatusCell";
 import {
   formatCurrency,
@@ -111,6 +111,7 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
       const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
       const [isDeleting, setIsDeleting] = useState(false);
       const { refreshData } = useContext(TableContext);
+      const { toast } = useToast();
 
       useEffect(() => {
         if (dialogOpen) {
@@ -201,7 +202,11 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
             throw new Error("Error al actualizar los datos");
           }
 
-          toast.success("Datos actualizados correctamente");
+          toast({
+            title: "Éxito",
+            description: "Datos actualizados correctamente",
+            variant: "default",
+          });
           setDialogOpen(false);
 
           // Refresh data if the function is available
@@ -210,7 +215,11 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
           }
         } catch (error) {
           console.error("Error saving changes:", error);
-          toast.error("Error al actualizar los datos");
+          toast({
+            title: "Error",
+            description: "Error al actualizar los datos",
+            variant: "destructive",
+          });
         } finally {
           setIsLoading(false);
         }
@@ -237,7 +246,11 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
             throw new Error("Error al eliminar la fila");
           }
 
-          toast.success("Fila eliminada correctamente");
+          toast({
+            title: "Éxito",
+            description: "Fila eliminada correctamente",
+            variant: "default",
+          });
           setDeleteDialogOpen(false);
           setDialogOpen(false);
 
@@ -247,7 +260,11 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
           }
         } catch (error) {
           console.error("Error deleting row:", error);
-          toast.error("Error al eliminar la fila");
+          toast({
+            title: "Error",
+            description: "Error al eliminar la fila",
+            variant: "destructive",
+          });
         } finally {
           setIsDeleting(false);
         }

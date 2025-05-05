@@ -14,6 +14,7 @@ import {
   FilterFn,
   Row,
 } from "@tanstack/react-table";
+import { useToast } from "@/components/ui/use-toast";
 
 // Meta type extension for columns
 declare module "@tanstack/react-table" {
@@ -46,6 +47,7 @@ import {
   RefreshCw,
   FileDown,
   Loader2,
+  CheckCircle,
 } from "lucide-react";
 import { exportToExcel } from "@/lib/utils/excel-export";
 import { generatePassword } from "@/lib/utils/password-utils";
@@ -56,7 +58,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { toast } from "sonner";
 
 // Import TableContext from nominas-columns
 import { TableContext } from "@/components/tables/columns/nominas-columns";
@@ -119,6 +120,7 @@ export function DataTable<TData, TValue>({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const { toast } = useToast();
 
   // Custom filter function for multi-column search
   const multiColumnFilter: FilterFn<any> = (row, columnId, value, addMeta) => {
@@ -181,27 +183,36 @@ export function DataTable<TData, TValue>({
 
   const handleFileDownload = async () => {
     if (!fileDownloadUrl) {
-      toast.error("URL de descarga no especificada");
+      toast({
+        title: "URL de descarga no especificada",
+        description: "Por favor, verifique la URL de descarga",
+        variant: "destructive",
+      });
       return;
     }
 
     try {
       setIsDownloading(true);
-      toast.info("Preparando archivos para descargar...");
+      toast({
+        title: "Preparando archivos para descargar...",
+      });
 
       const queryParams = new URLSearchParams(fileDownloadParams).toString();
       const url = `${fileDownloadUrl}${queryParams ? `?${queryParams}` : ""}`;
 
-      // Show a toast with longer duration for large downloads
-      const downloadToast = toast.loading(
-        "Descargando archivos. Esto puede tardar varios minutos para archivos grandes...",
-        {
-          duration: 120000, // 2 minutes
-        }
-      );
-
       // Fetch the file from the server
       const response = await fetch(url);
+
+      // Handle case when the response indicates no files available (204 No Content)
+      if (response.status === 204) {
+        toast({
+          title: "No hay archivos disponibles para descargar",
+          description: "Por favor, verifique la URL de descarga",
+          variant: "destructive",
+        });
+        console.log("No hay archivos disponibles para descargar");
+        return;
+      }
 
       if (!response.ok) {
         // Try to parse error message from JSON response
@@ -220,7 +231,11 @@ export function DataTable<TData, TValue>({
       // Check if response is empty
       const contentLength = response.headers.get("content-length");
       if (contentLength === "0") {
-        throw new Error("No se recibieron archivos del servidor");
+        toast({
+          title: "No hay archivos disponibles para descargar",
+          description: "Por favor, verifique la URL de descarga",
+        });
+        return;
       }
 
       // Get the content disposition header to extract the filename
@@ -235,8 +250,8 @@ export function DataTable<TData, TValue>({
       }
 
       // Update progress toast
-      toast.loading("Recibiendo archivos del servidor...", {
-        id: downloadToast,
+      toast({
+        title: "Recibiendo archivos del servidor...",
       });
 
       // Convert the response to a blob
@@ -244,12 +259,16 @@ export function DataTable<TData, TValue>({
 
       // Check if the blob is valid
       if (blob.size === 0) {
-        throw new Error("El archivo descargado está vacío");
+        toast({
+          title: "No hay archivos disponibles para descargar",
+          description: "Por favor, verifique la URL de descarga",
+        });
+        return;
       }
 
       // Update progress toast
-      toast.loading("Iniciando descarga...", {
-        id: downloadToast,
+      toast({
+        title: "Iniciando descarga...",
       });
 
       // Create a download link and trigger download
@@ -267,17 +286,28 @@ export function DataTable<TData, TValue>({
       }, 100);
 
       // Close the progress toast and show success
-      toast.dismiss(downloadToast);
-      toast.success(
-        `Archivos descargados correctamente (${(blob.size / (1024 * 1024)).toFixed(2)} MB)`
-      );
+      toast({
+        title: "Archivos descargados correctamente",
+        variant: "default",
+        description: (
+          <div className="flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+            <p className="text-sm text-muted-foreground">
+              Se han descargado los archivos correctamente (
+              {`${(blob.size / (1024 * 1024)).toFixed(2)} MB`})
+            </p>
+          </div>
+        ),
+      });
     } catch (error) {
       console.error("Error al descargar archivos:", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Error al descargar los archivos"
-      );
+      toast({
+        title: "Error al descargar archivos",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Error al descargar los archivos",
+      });
     } finally {
       setIsDownloading(false);
     }
@@ -320,7 +350,9 @@ export function DataTable<TData, TValue>({
         throw new Error(errorMessage);
       }
 
-      toast.success("Empresa agregada correctamente");
+      toast({
+        title: "Empresa agregada correctamente",
+      });
       setDialogOpen(false);
       setNewCompany({
         Rut: "",
@@ -334,9 +366,13 @@ export function DataTable<TData, TValue>({
       // Refresh the page to show the new data
       window.location.reload();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Error al agregar la empresa"
-      );
+      toast({
+        title: "Error al agregar la empresa",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Error al agregar la empresa",
+      });
     } finally {
       setIsSubmitting(false);
     }

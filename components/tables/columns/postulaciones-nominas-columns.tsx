@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
+import { useToast } from "@/components/ui/use-toast";
 import DocumentStatusCell from "@/components/DocumentStatusCell";
 import {
   formatCurrency,
@@ -88,6 +88,7 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
       const [dialogOpen, setDialogOpen] = useState(false);
       const [editedData, setEditedData] = useState<Partial<NominaRow>>({});
       const [isLoading, setIsLoading] = useState(false);
+      const { toast } = useToast();
 
       useEffect(() => {
         if (dialogOpen) {
@@ -174,13 +175,21 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
             throw new Error("Error al actualizar los datos");
           }
 
-          toast.success("Datos actualizados correctamente");
+          toast({
+            title: "Éxito",
+            description: "Datos actualizados correctamente",
+            variant: "default",
+          });
           setDialogOpen(false);
           // Trigger a refresh of the table data
           window.location.reload();
         } catch (error) {
           console.error("Error saving changes:", error);
-          toast.error("Error al actualizar los datos");
+          toast({
+            title: "Error",
+            description: "Error al actualizar los datos",
+            variant: "destructive",
+          });
         } finally {
           setIsLoading(false);
         }
@@ -361,6 +370,7 @@ function PasswordManager({ rut }: { rut: string }) {
   const [isChanging, setIsChanging] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   // Fetch the current password
   useEffect(() => {
@@ -395,7 +405,11 @@ function PasswordManager({ rut }: { rut: string }) {
 
   const handleUpdatePassword = async () => {
     if (!newPassword.trim()) {
-      toast.error("La nueva contraseña no puede estar vacía");
+      toast({
+        title: "Error",
+        description: "La nueva contraseña no puede estar vacía",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -421,12 +435,21 @@ function PasswordManager({ rut }: { rut: string }) {
       // Update the displayed password
       setPassword(newPassword.trim());
       setNewPassword("");
-      toast.success("Contraseña actualizada correctamente");
+      toast({
+        title: "Éxito",
+        description: "Contraseña actualizada correctamente",
+        variant: "default",
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
-      toast.error(
-        err instanceof Error ? err.message : "Error al actualizar la contraseña"
-      );
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error
+            ? err.message
+            : "Error al actualizar la contraseña",
+        variant: "destructive",
+      });
       console.error("Error updating password:", err);
     } finally {
       setIsChanging(false);

@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
+import { useToast } from "@/components/ui/use-toast";
 import { TableContext } from "@/components/tables/columns/nominas-columns";
 
 // Helper function to create consistent column definitions
@@ -74,10 +74,14 @@ function PasswordManager({
   const [isChanging, setIsChanging] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const handleUpdatePassword = async () => {
     if (!newPassword.trim()) {
-      toast.error("La nueva contraseña no puede estar vacía");
+      toast({
+        title: "La nueva contraseña no puede estar vacía",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -104,7 +108,9 @@ function PasswordManager({
       setPassword(newPassword.trim());
       setNewPassword("");
       onPasswordChange(newPassword.trim());
-      toast.success("Contraseña actualizada correctamente");
+      toast({
+        title: "Contraseña actualizada correctamente",
+      });
 
       // Refresh data if available
       if (refreshData) {
@@ -112,9 +118,13 @@ function PasswordManager({
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
-      toast.error(
-        err instanceof Error ? err.message : "Error al actualizar la contraseña"
-      );
+      toast({
+        title:
+          err instanceof Error
+            ? err.message
+            : "Error al actualizar la contraseña",
+        variant: "destructive",
+      });
       console.error("Error updating password:", err);
     } finally {
       setIsChanging(false);
@@ -196,6 +206,7 @@ function DeleteButton({
   refreshData?: () => Promise<void>;
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const { toast } = useToast();
 
   const handleDelete = async () => {
     if (
@@ -221,7 +232,9 @@ function DeleteButton({
         throw new Error(errorData.error || "Error al eliminar la empresa");
       }
 
-      toast.success("Empresa eliminada correctamente");
+      toast({
+        title: "Empresa eliminada correctamente",
+      });
       onDelete();
 
       // Use refreshData instead of relying on onDelete to reload page
@@ -229,9 +242,11 @@ function DeleteButton({
         await refreshData();
       }
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Error al eliminar la empresa"
-      );
+      toast({
+        title:
+          err instanceof Error ? err.message : "Error al eliminar la empresa",
+        variant: "destructive",
+      });
       console.error("Error deleting empresa:", err);
     } finally {
       setIsDeleting(false);
@@ -268,6 +283,7 @@ export const empresasColumns: ColumnDef<User>[] = [
       const [isLoading, setIsLoading] = useState(false);
       const { refreshData } = useContext(TableContext);
       const [formError, setFormError] = useState<string | null>(null);
+      const { toast } = useToast();
 
       useEffect(() => {
         if (dialogOpen) {
@@ -318,7 +334,9 @@ export const empresasColumns: ColumnDef<User>[] = [
             throw new Error(errorData.error || "Error al actualizar los datos");
           }
 
-          toast.success("Datos actualizados correctamente");
+          toast({
+            title: "Datos actualizados correctamente",
+          });
           setDialogOpen(false);
 
           // Use refreshData instead of page reload
@@ -327,11 +345,13 @@ export const empresasColumns: ColumnDef<User>[] = [
           }
         } catch (error) {
           console.error("Error saving changes:", error);
-          toast.error(
-            error instanceof Error
-              ? error.message
-              : "Error al actualizar los datos"
-          );
+          toast({
+            title:
+              error instanceof Error
+                ? error.message
+                : "Error al actualizar los datos",
+            variant: "destructive",
+          });
         } finally {
           setIsLoading(false);
         }

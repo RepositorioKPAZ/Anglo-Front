@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { useToast } from "@/components/ui/use-toast";
 import { TableContext } from "@/components/tables/columns/nominas-columns";
 
 type DocumentMetadata = {
@@ -63,6 +63,7 @@ export default function DocumentStatusCell({
   const [documents, setDocuments] = useState<DocumentMetadata[]>([]); // Replace single document with array
   const [fileInputKey, setFileInputKey] = useState(Date.now()); // For resetting file input
   const [uploadError, setUploadError] = useState<string | null>(null); // Track upload errors
+  const { toast } = useToast();
 
   // Get refreshData function from TableContext if available
   const { refreshData } = useContext(TableContext);
@@ -108,7 +109,10 @@ export default function DocumentStatusCell({
       }
     } catch (error) {
       console.error("Error checking document:", error);
-      toast.error("Error al verificar documento");
+      toast({
+        title: "Error al verificar documento",
+        variant: "destructive",
+      });
       setDocuments([]);
     } finally {
       setLoading(false);
@@ -169,7 +173,10 @@ export default function DocumentStatusCell({
     // Validate file type
     if (file.type !== "application/pdf") {
       setUploadError("Solo se permiten archivos PDF");
-      toast.error("Solo se permiten archivos PDF");
+      toast({
+        title: "Solo se permiten archivos PDF",
+        variant: "destructive",
+      });
       console.error("Invalid file type:", file.type);
       return;
     }
@@ -179,14 +186,19 @@ export default function DocumentStatusCell({
     if (file.size > maxSize) {
       const errorMsg = `El archivo es demasiado grande. Tamaño máximo: ${formatBytes(maxSize)}`;
       setUploadError(errorMsg);
-      toast.error(errorMsg);
+      toast({
+        title: errorMsg,
+        variant: "destructive",
+      });
       console.error("File too large:", file.size, "Max size:", maxSize);
       return;
     }
 
     try {
       setUploading(true);
-      toast.info("Subiendo documento...");
+      toast({
+        title: "Subiendo documento...",
+      });
       console.log("Starting upload for rowId:", rowId);
 
       const formData = new FormData();
@@ -239,7 +251,9 @@ export default function DocumentStatusCell({
         throw new Error(errorMessage);
       }
 
-      toast.success("Documento subido correctamente");
+      toast({
+        title: "Documento subido correctamente",
+      });
 
       // Reset file input
       setFileInputKey(Date.now());
@@ -254,7 +268,10 @@ export default function DocumentStatusCell({
       const errorMessage =
         error instanceof Error ? error.message : "Error al subir documento";
       setUploadError(errorMessage);
-      toast.error(errorMessage);
+      toast({
+        title: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setUploading(false);
     }
@@ -294,15 +311,21 @@ export default function DocumentStatusCell({
         setDocuments([]);
       }
 
-      toast.success("Documento eliminado correctamente");
+      toast({
+        title: "Documento eliminado correctamente",
+      });
 
       // Trigger refresh for all document cells
       triggerDocumentChangeEvent();
     } catch (error) {
       console.error("Error deleting document:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Error al eliminar documento"
-      );
+      toast({
+        title:
+          error instanceof Error
+            ? error.message
+            : "Error al eliminar documento",
+        variant: "destructive",
+      });
     } finally {
       setDeleting(null);
     }
@@ -326,9 +349,13 @@ export default function DocumentStatusCell({
       window.open(downloadUrl, "_blank");
     } catch (error) {
       console.error("Error downloading document:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Error al descargar documento"
-      );
+      toast({
+        title:
+          error instanceof Error
+            ? error.message
+            : "Error al descargar documento",
+        variant: "destructive",
+      });
     }
   };
 
@@ -350,9 +377,13 @@ export default function DocumentStatusCell({
       window.open(viewUrl, "_blank");
     } catch (error) {
       console.error("Error viewing document:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Error al visualizar documento"
-      );
+      toast({
+        title:
+          error instanceof Error
+            ? error.message
+            : "Error al visualizar documento",
+        variant: "destructive",
+      });
     }
   };
 
