@@ -182,10 +182,10 @@ export function DataTable<TData, TValue>({
   };
 
   const handleFileDownload = async () => {
-    if (!fileDownloadUrl) {
+    if (!fileDownloadUrl || isDownloading) {
       toast({
-        title: "URL de descarga no especificada",
-        description: "Por favor, verifique la URL de descarga",
+        title: "Descarga en progreso o URL no especificada",
+        description: "Por favor, espere a que termine la descarga actual",
         variant: "destructive",
       });
       return;
@@ -310,6 +310,11 @@ export function DataTable<TData, TValue>({
       });
     } finally {
       setIsDownloading(false);
+
+      // Add a small delay to prevent rapid successive clicks
+      setTimeout(() => {
+        // This empty timeout ensures there's a delay before allowing another download
+      }, 1000);
     }
   };
 

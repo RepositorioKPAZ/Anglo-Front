@@ -131,8 +131,8 @@ async function getDocumentsForNominas(nominas: {Rut: string}[]): Promise<Documen
     const batch = nominas.slice(i, i + BATCH_SIZE);
     console.log(`Processing batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(nominas.length/BATCH_SIZE)}, items ${i+1}-${Math.min(i+BATCH_SIZE, nominas.length)}`);
     
-    // Process each nomina in the current batch
-    const batchPromises = batch.map(async (nomina) => {
+    // Process each nomina in the current batch SEQUENTIALLY to avoid too many database connections
+    for (const nomina of batch) {
       try {
         const docsForNomina = await getAllDocuments(nomina.Rut);
         if (docsForNomina && docsForNomina.length > 0) {
@@ -157,10 +157,7 @@ async function getDocumentsForNominas(nominas: {Rut: string}[]): Promise<Documen
         console.warn(`Error fetching documents for RUT ${nomina.Rut}:`, nominaError);
         // Continue with other nominas even if one fails
       }
-    });
-    
-    // Wait for all promises in this batch to complete
-    await Promise.all(batchPromises);
+    }
     
     // Log progress after each batch
     console.log(`Batch complete. Total documents collected so far: ${documents.length}`);
