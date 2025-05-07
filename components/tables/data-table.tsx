@@ -249,13 +249,92 @@ export function DataTable<TData, TValue>({
         }
       }
 
-      // Update progress toast
-      toast({
-        title: "Recibiendo archivos del servidor...",
+      // Create a reader for the response body
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("No se pudo iniciar la lectura del stream");
+      }
+
+      // Create a ReadableStream to process the response
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            // Process the response stream
+            while (true) {
+              const { done, value } = await reader.read();
+
+              if (done) {
+                controller.close();
+                break;
+              }
+
+              // Check if this chunk contains progress information
+              const text = new TextDecoder().decode(value);
+              const lines = text.split("\n");
+
+              for (const line of lines) {
+                if (line.trim() === "") continue;
+
+                try {
+                  const data = JSON.parse(line);
+
+                  // Handle different message types
+                  if (data.type === "progress") {
+                    // Update progress toast
+                    toast({
+                      title:
+                        data.stage === "preparing"
+                          ? "Preparando archivos..."
+                          : `Procesando archivos (${data.percentage}%)`,
+                      description: (
+                        <div className="flex items-center gap-2">
+                          <div className="w-full bg-gray-200 rounded-full h-2.5">
+                            <div
+                              className="bg-primary h-2.5 rounded-full"
+                              style={{ width: `${data.percentage}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {data.percentage}%
+                          </span>
+                        </div>
+                      ),
+                    });
+                  } else if (data.type === "complete") {
+                    // Final progress update
+                    toast({
+                      title: "Iniciando descarga...",
+                      description: (
+                        <div className="flex items-center gap-2">
+                          <div className="w-full bg-gray-200 rounded-full h-2.5">
+                            <div
+                              className="bg-primary h-2.5 rounded-full"
+                              style={{ width: "100%" }}
+                            ></div>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            100%
+                          </span>
+                        </div>
+                      ),
+                    });
+                  } else if (data.type === "error") {
+                    throw new Error(data.message || "Error desconocido");
+                  }
+                } catch (parseError) {
+                  // If it's not JSON, it's part of the ZIP file
+                  controller.enqueue(value);
+                }
+              }
+            }
+          } catch (error) {
+            controller.error(error);
+          }
+        },
       });
 
-      // Convert the response to a blob
-      const blob = await response.blob();
+      // Convert the processed stream to a blob
+      const blob = await new Response(stream).blob();
 
       // Check if the blob is valid
       if (blob.size === 0) {
@@ -265,11 +344,6 @@ export function DataTable<TData, TValue>({
         });
         return;
       }
-
-      // Update progress toast
-      toast({
-        title: "Iniciando descarga...",
-      });
 
       // Create a download link and trigger download
       const downloadUrl = window.URL.createObjectURL(blob);

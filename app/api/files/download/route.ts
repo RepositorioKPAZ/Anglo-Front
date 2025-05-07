@@ -10,6 +10,9 @@ import { getAllDocuments, getDocumentById, DocumentMetadata } from "@/lib/utils/
 // Authentication utilities (commented out until authentication is set up)
 // import { getCurrentUser } from "@/lib/auth";
 
+// Track active download processes
+let activeDownloadController: ReadableStreamDefaultController | null = null;
+
 /**
  * API route for downloading files as a zip archive
  * 
@@ -18,6 +21,17 @@ import { getAllDocuments, getDocumentById, DocumentMetadata } from "@/lib/utils/
  */
 export async function GET(request: NextRequest) {
   try {
+    // Cancel any existing download process
+    if (activeDownloadController) {
+      console.log("Cancelling previous download process");
+      try {
+        activeDownloadController.error(new Error("Download cancelled - new request received"));
+      } catch (error) {
+        console.warn("Error cancelling previous download:", error);
+      }
+      activeDownloadController = null;
+    }
+
     // Authentication check - Uncomment this code when authentication is set up
     // =========================================================================
     // try {
@@ -32,9 +46,9 @@ export async function GET(request: NextRequest) {
     //   console.error("Authentication error:", authError);
     //   return NextResponse.json(
     //     { error: "Authentication failed" },
-    //     { status: 401 }
-    //   );
-    // }
+    //       { status: 401 }
+    //     );
+    //   }
     // =========================================================================
 
     const { searchParams } = new URL(request.url);
@@ -84,27 +98,197 @@ export async function GET(request: NextRequest) {
 
     console.log(`Encontrados ${documents.length} documentos para incluir en el archivo zip`);
     
-    // Create a zip file with all the retrieved documents
-    try {
-      const { zipBuffer, filename } = await createZipWithDocuments(documents, tableId);
-      
-      console.log(`Archivo zip creado: ${filename}, tamaño: ${zipBuffer.length} bytes`);
-      
-      // Return the zip file as a downloadable response
-      return new NextResponse(zipBuffer, {
+    // Create a timestamp for the filename
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const filename = `${tableId}-files-${timestamp}.zip`;
+    const parentFolderName = `${tableId}-files-${timestamp}`;
+
+    // Initialize a ReadableStream for streaming the response
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // Store the controller reference for potential cancellation
+          activeDownloadController = controller;
+          
+          // Create a zip archive
+          const archive = archiver("zip", {
+            zlib: { level: 5 }, // Compression level
+          });
+
+          // Set up a timeout to prevent hanging downloads
+          // 15 minutes timeout (900000 ms) - generous timeout for large downloads
+          const timeoutDuration = 900000;
+          let lastActivityTime = Date.now();
+          let timeoutId: NodeJS.Timeout | null = null;
+          
+          // Function to reset the timeout
+          const resetTimeout = () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            lastActivityTime = Date.now();
+            timeoutId = setTimeout(() => {
+              const timeSinceLastActivity = Date.now() - lastActivityTime;
+              console.error(`Download timeout after ${timeSinceLastActivity}ms of inactivity`);
+              controller.error(new Error("Download timeout - no activity for too long"));
+            }, timeoutDuration);
+          };
+          
+          // Start the initial timeout
+          resetTimeout();
+
+          // Track progress for reporting
+          let totalBytes = 0;
+          let processedBytes = 0;
+          
+          // Calculate total size for progress reporting
+          for (const doc of documents) {
+            if (doc.contenido_documento) {
+              totalBytes += doc.contenido_documento.length;
+            }
+          }
+          
+          // Send initial progress message
+          const progressMessage = JSON.stringify({
+            type: 'progress',
+            stage: 'preparing',
+            total: totalBytes,
+            processed: 0,
+            percentage: 0
+          });
+          controller.enqueue(new TextEncoder().encode(progressMessage + '\n'));
+
+          // Handle data chunks from the archive
+          archive.on("data", chunk => {
+            // Reset timeout on each chunk
+            resetTimeout();
+            controller.enqueue(chunk);
+          });
+
+          // Handle archive finalization
+          archive.on("end", () => {
+            // Clear timeout when archive is complete
+            if (timeoutId) clearTimeout(timeoutId);
+            
+            // Send completion message
+            const completionMessage = JSON.stringify({
+              type: 'complete',
+              total: totalBytes,
+              processed: totalBytes,
+              percentage: 100
+            });
+            controller.enqueue(new TextEncoder().encode(completionMessage + '\n'));
+            
+            controller.close();
+            // Clear the active controller reference
+            if (activeDownloadController === controller) {
+              activeDownloadController = null;
+            }
+            console.log("Archive stream closed successfully");
+          });
+
+          // Handle errors
+          archive.on("error", (err) => {
+            // Clear timeout on error
+            if (timeoutId) clearTimeout(timeoutId);
+            console.error("Error in archive stream:", err);
+            
+            // Send error message
+            const errorMessage = JSON.stringify({
+              type: 'error',
+              message: err.message || 'Unknown error occurred'
+            });
+            controller.enqueue(new TextEncoder().encode(errorMessage + '\n'));
+            
+            controller.error(err);
+            // Clear the active controller reference
+            if (activeDownloadController === controller) {
+              activeDownloadController = null;
+            }
+          });
+
+          console.log(`Starting to add ${documents.length} documents to archive...`);
+          
+          // Process documents in smaller batches to avoid memory spikes
+          const BATCH_SIZE = 10;
+          let processedCount = 0;
+          let errorCount = 0;
+          
+          for (let i = 0; i < documents.length; i += BATCH_SIZE) {
+            const batch = documents.slice(i, Math.min(i + BATCH_SIZE, documents.length));
+            console.log(`Processing batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(documents.length/BATCH_SIZE)}...`);
+            
+            for (const doc of batch) {
+              try {
+                if (!doc.contenido_documento) {
+                  console.warn(`Document ${doc.id_doc} has no content, skipping`);
+                  errorCount++;
+                  continue;
+                }
+                
+                // Create a folder name based on the rowId (usually RUT)
+                const folderName = doc.rowId ? doc.rowId.replace(/[^a-zA-Z0-9-_]/g, '_') : 'unknown';
+                
+                // Add the file to the archive in a folder structure: parentFolder/rowId/filename
+                archive.append(doc.contenido_documento, { 
+                  name: `${parentFolderName}/${folderName}/${doc.fileName}` 
+                });
+                
+                // Update progress
+                processedBytes += doc.contenido_documento.length;
+                const percentage = Math.round((processedBytes / totalBytes) * 100);
+                
+                // Send progress update
+                const progressMessage = JSON.stringify({
+                  type: 'progress',
+                  stage: 'processing',
+                  total: totalBytes,
+                  processed: processedBytes,
+                  percentage: percentage
+                });
+                controller.enqueue(new TextEncoder().encode(progressMessage + '\n'));
+                
+                processedCount++;
+              } catch (error) {
+                console.warn(`Failed to add document to archive: ${doc.id_doc}`, error);
+                errorCount++;
+                // Continue with other files even if one fails
+              }
+            }
+            
+            // Log progress after each batch
+            console.log(`Processed ${processedCount}/${documents.length} documents (${errorCount} errors)`);
+          }
+          
+          // Finalize the archive (this triggers the 'end' event when done)
+          archive.finalize();
+        } catch (error) {
+          console.error("Error creating streaming response:", error);
+          
+          // Send error message
+          const errorMessage = JSON.stringify({
+            type: 'error',
+            message: error instanceof Error ? error.message : 'Unknown error occurred'
+          });
+          controller.enqueue(new TextEncoder().encode(errorMessage + '\n'));
+          
+          controller.error(error);
+          // Clear the active controller reference
+          if (activeDownloadController === controller) {
+            activeDownloadController = null;
+          }
+        }
+      }
+    });
+
+    // Return streaming response
+    return new Response(stream, {
         headers: {
           "Content-Type": "application/zip",
           "Content-Disposition": `attachment; filename="${filename}"`,
-          "Content-Length": zipBuffer.length.toString(),
+          // Add a custom header to indicate this is a multipart response
+          "X-Content-Type-Options": "multipart/mixed"
         },
       });
-    } catch (zipError) {
-      console.error("Error al crear el archivo zip:", zipError);
-      return NextResponse.json(
-        { error: "Error al crear el archivo zip" },
-        { status: 500 }
-      );
-    }
+    
   } catch (error) {
     console.error("Error en la API de descarga de archivos:", error);
     return NextResponse.json(
@@ -165,68 +349,4 @@ async function getDocumentsForNominas(nominas: {Rut: string}[]): Promise<Documen
   
   console.log(`Finished collecting all documents. Total: ${documents.length}`);
   return documents;
-}
-
-/**
- * Creates a zip archive from database documents
- */
-async function createZipWithDocuments(documents: DocumentMetadata[], tableId: string) {
-  // Create a zip archive
-  const archive = archiver("zip", {
-    zlib: { level: 5 }, // Compression level
-  });
-
-  // Create buffers for collecting the archive data
-  const chunks: Buffer[] = [];
-
-  // Set up the archive to write to our buffer
-  archive.on("data", (chunk: any) => chunks.push(Buffer.from(chunk)));
-
-  // Track documents added to provide status
-  let addedCount = 0;
-  let errorCount = 0;
-
-  // Create a timestamp for the parent folder
-  const timestamp = new Date().toISOString().slice(0, 10);
-  const parentFolderName = `${tableId}-files-${timestamp}`;
-
-  // For each document, add it to the archive
-  for (const doc of documents) {
-    try {
-      if (!doc.contenido_documento) {
-        console.warn(`Document ${doc.id_doc} has no content, skipping`);
-        errorCount++;
-        continue;
-      }
-      
-      // Create a folder name based on the rowId (usually RUT)
-      const folderName = doc.rowId ? doc.rowId.replace(/[^a-zA-Z0-9-_]/g, '_') : 'unknown';
-      
-      // Add the file to the archive in a folder structure: parentFolder/rowId/filename
-      archive.append(doc.contenido_documento, { 
-        name: `${parentFolderName}/${folderName}/${doc.fileName}` 
-      });
-      
-      addedCount++;
-    } catch (error) {
-      console.warn(`Failed to add document to archive: ${doc.id_doc}`, error);
-      errorCount++;
-      // Continue with other files even if one fails
-    }
-  }
-
-  // Finalize the archive
-  archive.finalize();
-
-  // Log status
-  console.log(`Added ${addedCount} documents to archive, ${errorCount} failed`);
-
-  // Return a promise that resolves when the archive is finalized
-  return new Promise<{ zipBuffer: Buffer; filename: string }>((resolve) => {
-    archive.on("end", () => {
-      const zipBuffer = Buffer.concat(chunks);
-      const filename = `${tableId}-files-${timestamp}.zip`;
-      resolve({ zipBuffer, filename });
-    });
-  });
 } 
