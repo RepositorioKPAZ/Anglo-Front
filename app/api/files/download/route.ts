@@ -7,36 +7,18 @@ import { executeQuery } from "@/app/api/db-connection";
 // Import document utils
 import { getAllDocuments, getDocumentById, DocumentMetadata } from "@/lib/utils/db-document-utils";
 
-// Authentication utilities (commented out until authentication is set up)
-// import { getCurrentUser } from "@/lib/auth";
-
 /**
- * API route for downloading files as a zip archive
+ * Simplified API route for downloading files as a zip archive
  * 
  * Query parameters:
- * - tableId: Identifier for which table/entity we're downloading files for (optional)
+ * - tableId: Identifier for which table/entity we're downloading files for
  */
 export async function GET(request: NextRequest) {
   try {
-    // Authentication check - Uncomment this code when authentication is set up
-    // =========================================================================
-    // try {
-    //   const user = await getCurrentUser();
-    //   if (!user || user.role !== 'admin') {
-    //     return NextResponse.json(
-    //       { error: "Unauthorized. Admin access required." },
-    //       { status: 401 }
-    //     );
-    //   }
-    // } catch (authError) {
-    //   console.error("Authentication error:", authError);
-    //   return NextResponse.json(
-    //     { error: "Authentication failed" },
-    //     { status: 401 }
-    //   );
-    // }
-    // =========================================================================
-
+    /********************************************
+     * SECTION 1: PARAMETER VALIDATION
+     ********************************************/
+    // Extract and validate query parameters
     const { searchParams } = new URL(request.url);
     const tableId = searchParams.get("tableId");
     
@@ -48,185 +30,191 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Log the request for debugging
+    // Log the request
     console.log(`File download requested for table: ${tableId}`);
     
-    // Fetch all file data based on table type
+    /********************************************
+     * SECTION 2: DATABASE DOCUMENT RETRIEVAL
+     ********************************************/
+    // Fetch relevant documents based on tableId
     let documents: DocumentMetadata[] = [];
     try {
       if (tableId === "nominas") {
-        // For nominas, get all rows with their RUT values first
-        console.log("Obteniendo todos los RUTs de las nominas de la base de datos");
+        // Get all nomina IDs instead of RUTs
+        const nominasQuery = `SELECT ID FROM nominabeca`;
+        const nominas = await executeQuery<{ID: number}[]>(nominasQuery);
+        console.log(`Found ${nominas.length} nominas`);
+        console.log("\n[NOMINAS]", nominas);
         
-        const nominasQuery = `SELECT Rut FROM nominabeca`;
-        const nominas = await executeQuery<{Rut: string}[]>(nominasQuery);
+        if (nominas.length === 0) {
+          return NextResponse.json(
+            { message: "No hay registros de nóminas en la base de datos" },
+            { status: 200 }
+          );
+        }
         
-        console.log(`Encontrados ${nominas.length} filas de nominas`);
-        
-        // Then fetch all documents for these IDs
-        documents = await getDocumentsForNominas(nominas);
+        // Iterate through each ID and retrieve associated documents
+        for (const nomina of nominas) {
+          const nominaId = String(nomina.ID);
+          const docs = await getAllDocuments(nominaId);
+          if (docs && docs.length > 0) {
+            for (const doc of docs) {
+              if (doc.id_doc) {
+                try {
+                  // Get full document content for each document ID
+                  const fullDoc = await getDocumentById(doc.id_doc);
+                  if (fullDoc && fullDoc.contenido_documento) {
+                    documents.push(fullDoc);
+                  }
+                } catch (err) {
+                  console.warn(`Could not fetch document ${doc.id_doc}:`, err);
+                }
+              }
+            }
+          }
+        }
       } else {
-        // For other tables, use a table-specific approach
-        console.log(`Tabla ${tableId} no soporta descargas de archivos por ahora`);
+        console.log(`Table ${tableId} not supported`);
+        return NextResponse.json(
+          { message: `La tabla "${tableId}" no está soportada para descarga de archivos` },
+          { status: 400 }
+        );
       }
-    } catch (dbError) {
-      console.error("Error al obtener la información de los documentos de la base de datos:", dbError);
+    } catch (error) {
+      console.error("Database error:", error);
       return NextResponse.json(
-        { error: "Error obteniendo la información de los documentos de la base de datos" },
+        { error: "Error en la base de datos", message: error instanceof Error ? error.message : "Error desconocido" },
         { status: 500 }
       );
     }
 
-    if (!documents || documents.length === 0) {
-      console.log("No se encontraron documentos para la tabla especificada");
-      return new NextResponse(null, { status: 204 });
-    }
-
-    console.log(`Encontrados ${documents.length} documentos para incluir en el archivo zip`);
+    // Log document count
+    console.log(`Found ${documents.length} documents to download`);
     
-    // Create a zip file with all the retrieved documents
+    // Early return if no documents found
+    if (documents.length === 0) {
+      return NextResponse.json(
+        { message: "No hay archivos disponibles para descargar" }, 
+        { status: 200 }
+      );
+    }
+    
+    /********************************************
+     * SECTION 3: ZIP ARCHIVE CREATION
+     ********************************************/
+    // Create a simple timestamp-based filename
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const filename = `${tableId}-files-${timestamp}.zip`;
+    
+    // Create and return the zip directly - no batching, no progress tracking
     try {
-      const { zipBuffer, filename } = await createZipWithDocuments(documents, tableId);
+      // Setup for in-memory ZIP creation
+      const chunks: Buffer[] = [];
       
-      console.log(`Archivo zip creado: ${filename}, tamaño: ${zipBuffer.length} bytes`);
+      // Initialize archiver with no compression for better performance
+      const archive = archiver("zip", { store: true }); // No compression for speed
       
-      // Return the zip file as a downloadable response
+      // Set up error handling for the archiver
+      archive.on("warning", err => {
+        if (err.code === "ENOENT") {
+          console.warn("Archiver warning:", err);
+        } else {
+          throw err;
+        }
+      });
+      
+      // Collect data chunks as they're generated
+      archive.on("data", chunk => chunks.push(chunk));
+      
+      // Setup promise to handle archive completion
+      const archivePromise = new Promise<Buffer>((resolve, reject) => {
+        archive.on("end", () => {
+          const buffer = Buffer.concat(chunks);
+          console.log(`Archive created: ${buffer.length} bytes`);
+          resolve(buffer);
+        });
+        
+        archive.on("error", err => {
+          console.error("Archive error:", err);
+          reject(err);
+        });
+      });
+      
+      /********************************************
+       * SECTION 4: ADDING FILES TO ARCHIVE
+       ********************************************/
+      let fileCount = 0;
+      
+      for (const doc of documents) {
+        if (doc.contenido_documento && doc.contenido_documento.length > 0) {
+          // Create folder name based on document rowId
+          const folderName = doc.rowId ? doc.rowId.replace(/[^a-zA-Z0-9-_]/g, '_') : 'unknown';
+          try {
+            // Log information about the document for debugging
+            console.log(`Adding file: ${doc.fileName || 'unnamed'}, Size: ${doc.contenido_documento.length} bytes`);
+            
+            // Ensure we have a buffer of the right type
+            const fileData = Buffer.from(doc.contenido_documento);
+            
+            // Add document to archive with appropriate path
+            archive.append(fileData, { 
+              name: `${folderName}/${doc.fileName || `document_${fileCount}`}`
+            });
+            
+            fileCount++;
+          } catch (error) {
+            console.error(`Error adding file ${doc.fileName || 'unnamed'} to archive:`, error);
+          }
+        } else {
+          console.warn(`Empty document found: ${doc.id_doc}, Filename: ${doc.fileName || 'unnamed'}`);
+        }
+      }
+      
+      // Handle case where all documents were invalid
+      if (fileCount === 0) {
+        return NextResponse.json(
+          { message: "Los documentos encontrados están vacíos o son inválidos" }, 
+          { status: 200 }
+        );
+      }
+      
+      console.log(`Added ${fileCount} files to archive`);
+      
+      /********************************************
+       * SECTION 5: FINALIZING AND RETURNING RESPONSE
+       ********************************************/
+      // Complete the archive creation process
+      archive.finalize();
+      
+      // Wait for archive to complete
+      const zipBuffer = await archivePromise;
+      
+      // Validate the generated ZIP
+      if (!zipBuffer || zipBuffer.length === 0) {
+        return NextResponse.json(
+          { message: "Error al generar el archivo ZIP: ZIP generado está vacío" }, 
+          { status: 500 }
+        );
+      }
+      
+      console.log(`Successfully created ZIP with ${fileCount} files, Size: ${zipBuffer.length} bytes`);
+      
+      // Return the zip file as response with appropriate headers
       return new NextResponse(zipBuffer, {
         headers: {
           "Content-Type": "application/zip",
           "Content-Disposition": `attachment; filename="${filename}"`,
           "Content-Length": zipBuffer.length.toString(),
-        },
-      });
-    } catch (zipError) {
-      console.error("Error al crear el archivo zip:", zipError);
-      return NextResponse.json(
-        { error: "Error al crear el archivo zip" },
-        { status: 500 }
-      );
-    }
-  } catch (error) {
-    console.error("Error en la API de descarga de archivos:", error);
-    return NextResponse.json(
-      { error: "Error al procesar la descarga de archivos" },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * Gets all documents for a list of nominas by their RUT values
- */
-async function getDocumentsForNominas(nominas: {Rut: string}[]): Promise<DocumentMetadata[]> {
-  const documents: DocumentMetadata[] = [];
-  
-  // Process in batches to avoid memory issues with large document sets
-  const BATCH_SIZE = 20; // Adjust based on average document size
-  
-  // Log progress
-  console.log(`Starting to fetch documents for ${nominas.length} nominas in batches of ${BATCH_SIZE}`);
-  
-  // Process nominas in batches
-  for (let i = 0; i < nominas.length; i += BATCH_SIZE) {
-    const batch = nominas.slice(i, i + BATCH_SIZE);
-    console.log(`Processing batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(nominas.length/BATCH_SIZE)}, items ${i+1}-${Math.min(i+BATCH_SIZE, nominas.length)}`);
-    
-    // Process each nomina in the current batch SEQUENTIALLY to avoid too many database connections
-    for (const nomina of batch) {
-      try {
-        const docsForNomina = await getAllDocuments(nomina.Rut);
-        if (docsForNomina && docsForNomina.length > 0) {
-          console.log(`Found ${docsForNomina.length} documents for RUT ${nomina.Rut}`);
-          
-          // For each document metadata, get the full document with content
-          for (const docMeta of docsForNomina) {
-            if (docMeta.id_doc) {
-              try {
-                const fullDoc = await getDocumentById(docMeta.id_doc);
-                if (fullDoc && fullDoc.contenido_documento) {
-                  documents.push(fullDoc);
-                }
-              } catch (docError) {
-                console.warn(`Error fetching document ${docMeta.id_doc} for RUT ${nomina.Rut}:`, docError);
-                // Continue with other documents even if one fails
-              }
-            }
-          }
         }
-      } catch (nominaError) {
-        console.warn(`Error fetching documents for RUT ${nomina.Rut}:`, nominaError);
-        // Continue with other nominas even if one fails
-      }
-    }
-    
-    // Log progress after each batch
-    console.log(`Batch complete. Total documents collected so far: ${documents.length}`);
-  }
-  
-  console.log(`Finished collecting all documents. Total: ${documents.length}`);
-  return documents;
-}
-
-/**
- * Creates a zip archive from database documents
- */
-async function createZipWithDocuments(documents: DocumentMetadata[], tableId: string) {
-  // Create a zip archive
-  const archive = archiver("zip", {
-    zlib: { level: 5 }, // Compression level
-  });
-
-  // Create buffers for collecting the archive data
-  const chunks: Buffer[] = [];
-
-  // Set up the archive to write to our buffer
-  archive.on("data", (chunk: any) => chunks.push(Buffer.from(chunk)));
-
-  // Track documents added to provide status
-  let addedCount = 0;
-  let errorCount = 0;
-
-  // Create a timestamp for the parent folder
-  const timestamp = new Date().toISOString().slice(0, 10);
-  const parentFolderName = `${tableId}-files-${timestamp}`;
-
-  // For each document, add it to the archive
-  for (const doc of documents) {
-    try {
-      if (!doc.contenido_documento) {
-        console.warn(`Document ${doc.id_doc} has no content, skipping`);
-        errorCount++;
-        continue;
-      }
-      
-      // Create a folder name based on the rowId (usually RUT)
-      const folderName = doc.rowId ? doc.rowId.replace(/[^a-zA-Z0-9-_]/g, '_') : 'unknown';
-      
-      // Add the file to the archive in a folder structure: parentFolder/rowId/filename
-      archive.append(doc.contenido_documento, { 
-        name: `${parentFolderName}/${folderName}/${doc.fileName}` 
       });
       
-      addedCount++;
     } catch (error) {
-      console.warn(`Failed to add document to archive: ${doc.id_doc}`, error);
-      errorCount++;
-      // Continue with other files even if one fails
+      console.error("Error creating zip:", error);
+      return NextResponse.json({ error: "Failed to create zip file" }, { status: 500 });
     }
+    
+  } catch (error) {
+    console.error("General error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  // Finalize the archive
-  archive.finalize();
-
-  // Log status
-  console.log(`Added ${addedCount} documents to archive, ${errorCount} failed`);
-
-  // Return a promise that resolves when the archive is finalized
-  return new Promise<{ zipBuffer: Buffer; filename: string }>((resolve) => {
-    archive.on("end", () => {
-      const zipBuffer = Buffer.concat(chunks);
-      const filename = `${tableId}-files-${timestamp}.zip`;
-      resolve({ zipBuffer, filename });
-    });
-  });
 } 

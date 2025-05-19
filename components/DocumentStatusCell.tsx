@@ -22,6 +22,7 @@ import { TableContext } from "@/components/tables/columns/nominas-columns";
 type DocumentMetadata = {
   id_doc?: number;
   rowId: string;
+  recordId?: string;
   fileName: string;
   uploadDate: string;
   fileType: string;
@@ -30,9 +31,11 @@ type DocumentMetadata = {
 
 type DocumentStatusCellProps = {
   rowId: string;
+  // recordId: string;
   isAdmin?: boolean;
   className?: string;
   rutEmpresa?: string;
+  rutTrabajador?: string;
 };
 
 // Custom event name for document changes
@@ -53,9 +56,11 @@ const formatBytes = (bytes: number, decimals = 2) => {
 
 export default function DocumentStatusCell({
   rowId,
+  // recordId,
   isAdmin = false,
   className,
   rutEmpresa = "",
+  rutTrabajador = "",
 }: DocumentStatusCellProps) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -76,11 +81,21 @@ export default function DocumentStatusCell({
     if (!rowId) return;
 
     try {
-      console.log("Checking documents for rowId:", rowId);
-      setLoading(true);
-      const response = await fetch(
-        `${apiBase}?rowId=${encodeURIComponent(rowId)}`
+      console.log(
+        "Checking documents for rowId:",
+        rowId
+        // "recordId:",
+        // recordId
       );
+      setLoading(true);
+
+      // Build URL with recordId if available
+      let url = `${apiBase}?rowId=${encodeURIComponent(rowId)}`;
+      // if (recordId) {
+      //   url += `&recordId=${encodeURIComponent(recordId)}`;
+      // }
+
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error("Error al verificar documento");
@@ -205,15 +220,23 @@ export default function DocumentStatusCell({
       formData.append("rowId", rowId);
       formData.append("file", file);
       formData.append("rutEmpresa", rutEmpresa);
+      formData.append("rutTrabajador", rutTrabajador);
+      // if (recordId) {
+      //   formData.append("recordId", recordId);
+      // }
 
       console.log(
         "FormData prepared:",
         "rowId:",
         rowId,
+        // "recordId:",
+        // recordId,
         "fileName:",
         file.name,
         "rutEmpresa:",
-        rutEmpresa
+        rutEmpresa,
+        "rutTrabajador:",
+        rutTrabajador
       );
 
       console.log("Sending POST request to:", apiBase);
@@ -287,10 +310,14 @@ export default function DocumentStatusCell({
     try {
       setDeleting(id_doc);
 
-      // Construct URL based on whether we have an id_doc
-      const deleteUrl = id_doc
-        ? `${apiBase}?rowId=${encodeURIComponent(rowId)}&id_doc=${id_doc}`
-        : `${apiBase}?rowId=${encodeURIComponent(rowId)}`;
+      // Construct URL based on whether we have an id_doc and recordId
+      let deleteUrl = `${apiBase}?rowId=${encodeURIComponent(rowId)}`;
+      if (id_doc) {
+        deleteUrl += `&id_doc=${id_doc}`;
+      }
+      // if (recordId) {
+      //   deleteUrl += `&recordId=${encodeURIComponent(recordId)}`;
+      // }
 
       const response = await fetch(deleteUrl, {
         method: "DELETE",
@@ -340,10 +367,14 @@ export default function DocumentStatusCell({
         throw new Error("Nombre de archivo no válido");
       }
 
-      // Construct URL based on whether we have a fileName
-      const downloadUrl = `${apiBase}/download?rowId=${encodeURIComponent(rowId)}${
-        fileName ? `&fileName=${encodeURIComponent(fileName)}` : ""
-      }`;
+      // Construct URL that includes recordId if available
+      let downloadUrl = `${apiBase}/download?rowId=${encodeURIComponent(rowId)}`;
+      if (fileName) {
+        downloadUrl += `&fileName=${encodeURIComponent(fileName)}`;
+      }
+      // if (recordId) {
+      //   downloadUrl += `&recordId=${encodeURIComponent(recordId)}`;
+      // }
 
       // Open download in new tab
       window.open(downloadUrl, "_blank");
@@ -368,12 +399,17 @@ export default function DocumentStatusCell({
         throw new Error("Nombre de archivo no válido");
       }
 
-      // Construct URL based on whether we have a fileName
-      const viewUrl = `${apiBase}/download?rowId=${encodeURIComponent(rowId)}${
-        fileName ? `&fileName=${encodeURIComponent(fileName)}` : ""
-      }&view=true`;
+      // Construct URL that includes recordId if available
+      let viewUrl = `${apiBase}/download?rowId=${encodeURIComponent(rowId)}`;
+      if (fileName) {
+        viewUrl += `&fileName=${encodeURIComponent(fileName)}`;
+      }
+      // if (recordId) {
+      //   viewUrl += `&recordId=${encodeURIComponent(recordId)}`;
+      // }
+      viewUrl += `&view=true`;
 
-      // Open document in a new tab with view=true param to display inline
+      // Open document in a new tab
       window.open(viewUrl, "_blank");
     } catch (error) {
       console.error("Error viewing document:", error);

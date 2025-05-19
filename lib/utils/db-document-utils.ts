@@ -3,6 +3,7 @@ import { executeQuery, executeTransaction } from '@/app/api/db-connection';
 export type DocumentMetadata = {
   id_doc?: number;
   rowId: string;
+  recordId?: string;
   fileName: string;
   uploadDate: string;
   fileType: string;
@@ -11,22 +12,32 @@ export type DocumentMetadata = {
 };
 
 // Get all documents metadata for a specific row
-export async function getDocumentMetadata(rowId: string): Promise<DocumentMetadata | null> {
+export async function getDocumentMetadata(rowId: string, recordId?: string): Promise<DocumentMetadata | null> {
   try {
-    const query = `
+    let query = `
       SELECT 
         id_doc, 
-        Ruttrabajador as rowId, 
+        Ruttrabajador as rowId,
+        RutEmpresa as rutEmpresa,
         nombre_documento as fileName, 
         'application/pdf' as fileType,
         contenido_documento,
         LENGTH(contenido_documento) as fileSize
       FROM documentosajuntos
-      WHERE Ruttrabajador = ?
-      LIMIT 1
+      WHERE id_nomina = ?
     `;
     
-    const results = await executeQuery<any[]>(query, [rowId]);
+    const params = [rowId];
+    
+    // If recordId is provided, add it to the query
+    if (recordId) {
+      query += ` AND record_id = ?`;
+      params.push(recordId);
+    }
+    
+    query += ` LIMIT 1`;
+    
+    const results = await executeQuery<any[]>(query, params);
     
     if (results && results.length > 0) {
       // Add current date as uploadDate since it's not stored in the DB
@@ -43,21 +54,32 @@ export async function getDocumentMetadata(rowId: string): Promise<DocumentMetada
 }
 
 // Get all documents for a specific row
-export async function getAllDocuments(rowId: string): Promise<DocumentMetadata[]> {
+export async function getAllDocuments(rowId: string, recordId?: string): Promise<DocumentMetadata[]> {
+  // TODO: Change the fields, make them match the database
   try {
-    const query = `
+    let query = `
       SELECT 
         id_doc, 
-        Ruttrabajador as rowId, 
+        Ruttrabajador as rowId,
+        RutEmpresa as rutEmpresa,
         nombre_documento as fileName, 
         'application/pdf' as fileType,
         LENGTH(contenido_documento) as fileSize
       FROM documentosajuntos
-      WHERE Ruttrabajador = ?
-      ORDER BY id_doc DESC
+      WHERE id_nomina = ?
     `;
     
-    const results = await executeQuery<any[]>(query, [rowId]);
+    const params = [rowId];
+    
+    // If recordId is provided, add it to the query
+    if (recordId) {
+      query += ` AND record_id = ?`;
+      params.push(recordId);
+    }
+    
+    query += ` ORDER BY id_doc DESC`;
+    
+    const results = await executeQuery<any[]>(query, params);
     
     if (results && results.length > 0) {
       // Add current date as uploadDate since it's not stored in the DB
@@ -81,7 +103,8 @@ export async function getDocumentById(docId: number): Promise<DocumentMetadata |
     const query = `
       SELECT 
         id_doc, 
-        Ruttrabajador as rowId, 
+        Ruttrabajador as rowId,
+        RutEmpresa as rutEmpresa,
         nombre_documento as fileName, 
         'application/pdf' as fileType,
         contenido_documento,
@@ -107,21 +130,30 @@ export async function getDocumentById(docId: number): Promise<DocumentMetadata |
 }
 
 // Get a specific document by row ID and filename
-export async function getDocumentByFileName(rowId: string, fileName: string): Promise<DocumentMetadata | null> {
+export async function getDocumentByFileName(rowId: string, fileName: string, recordId?: string): Promise<DocumentMetadata | null> {
   try {
-    const query = `
+    let query = `
       SELECT 
         id_doc, 
-        Ruttrabajador as rowId, 
+        Ruttrabajador as rowId,
+        RutEmpresa as rutEmpresa,
         nombre_documento as fileName, 
         'application/pdf' as fileType,
         contenido_documento,
         LENGTH(contenido_documento) as fileSize
       FROM documentosajuntos
-      WHERE Ruttrabajador = ? AND nombre_documento = ?
+      WHERE id_nomina = ? AND nombre_documento = ?
     `;
     
-    const results = await executeQuery<any[]>(query, [rowId, fileName]);
+    const params = [rowId, fileName];
+    
+    // If recordId is provided, add it to the query
+    if (recordId) {
+      query += ` AND record_id = ?`;
+      params.push(recordId);
+    }
+    
+    const results = await executeQuery<any[]>(query, params);
     
     if (results && results.length > 0) {
       // Add current date as uploadDate since it's not stored in the DB
@@ -143,7 +175,9 @@ export async function saveDocument(
   fileName: string,
   fileType: string,
   fileContent: Buffer,
-  rutEmpresa: string = ''
+  rutEmpresa: string = '',
+  recordId?: string,
+  rutTrabajador?: string
 ): Promise<DocumentMetadata | null> {
   try {
     console.log("saveDocument called with:", 
@@ -151,7 +185,9 @@ export async function saveDocument(
       "fileName:", fileName, 
       "fileType:", fileType, 
       "fileContentLength:", fileContent?.length || 0,
-      "rutEmpresa:", rutEmpresa
+      "rutEmpresa:", rutEmpresa,
+      "recordId:", recordId,
+      "rutTrabajador:", rutTrabajador
     );
 
     if (!rowId || !fileName || !fileContent) {
@@ -164,30 +200,34 @@ export async function saveDocument(
       throw new Error("Missing required parameters for saving document");
     }
 
-    // Check if a document with the same filename already exists for this rowId
-    const existingDoc = await getDocumentByFileName(rowId, fileName);
+    // Check if a document with the same filename already exists for this rowId/recordId
+    const existingDoc = await getDocumentByFileName(rowId, fileName, recordId);
     if (existingDoc) {
-      console.log("Document with the same filename already exists for this RUT");
-      throw new Error("Ya existe un documento con el mismo nombre para este trabajador");
+      console.log("Document with the same filename already exists for this worker/record");
+      throw new Error("Ya existe un documento con el mismo nombre para este registro");
     }
 
-    // Insert new document (always add as a new document)
+    // Insert new document
     const query = `
       INSERT INTO documentosajuntos (
         RutEmpresa,
         Ruttrabajador,
         nombre_documento,
-        contenido_documento
-      ) VALUES (?, ?, ?, ?)
+        contenido_documento,
+        id_nomina
+      ) VALUES (?, ?, ?, ?, ?)
     `;
-    const params = [rutEmpresa, rowId, fileName, fileContent];
+    // Use rutTrabajador if provided, otherwise fall back to rowId
+    const rut = rutTrabajador || rowId;
+    const params = [rutEmpresa, rut, fileName, fileContent, rowId];
     
     console.log("Executing query:", query.replace(/\s+/g, ' '));
     console.log("With params:", JSON.stringify([
       rutEmpresa, 
-      rowId, 
+      rut,
       fileName, 
-      fileContent ? "BUFFER_DATA" : null
+      fileContent ? "BUFFER_DATA" : null,
+      rowId // id_nomina
     ]));
     
     try {
@@ -205,8 +245,9 @@ export async function saveDocument(
           console.error("Error getting new document after insert:", getError);
           // Return a basic metadata object if we couldn't get the full one
           return {
-            id_doc: result.insertId,
+            // id_doc: result.insertId,
             rowId: rowId,
+            recordId: recordId,
             fileName: fileName,
             uploadDate: new Date().toISOString(),
             fileType: fileType,
@@ -243,10 +284,18 @@ export async function deleteDocumentById(docId: number): Promise<boolean> {
 }
 
 // Delete all documents for a row
-export async function deleteDocument(rowId: string): Promise<boolean> {
+export async function deleteDocument(rowId: string, recordId?: string): Promise<boolean> {
   try {
-    const query = 'DELETE FROM documentosajuntos WHERE Ruttrabajador = ?';
-    const result = await executeQuery<any>(query, [rowId]);
+    let query = 'DELETE FROM documentosajuntos WHERE id_nomina = ?';
+    const params = [rowId];
+    
+    // If recordId is provided, only delete documents for that specific record
+    if (recordId) {
+      query += ' AND record_id = ?';
+      params.push(recordId);
+    }
+    
+    const result = await executeQuery<any>(query, params);
     
     // Check if any rows were affected
     return result && result.affectedRows > 0;

@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const rowId = url.searchParams.get("rowId");
+    const recordId = url.searchParams.get("recordId") || undefined;
 
     if (!rowId) {
       return NextResponse.json(
@@ -21,10 +22,10 @@ export async function GET(request: NextRequest) {
     }
 
     // For backward compatibility, get single document metadata
-    const documentMetadata = await getDocumentMetadata(rowId);
+    const documentMetadata = await getDocumentMetadata(rowId, recordId);
     
     // Get all documents for this row
-    const documents = await getAllDocuments(rowId);
+    const documents = await getAllDocuments(rowId, recordId);
     
     // Backward compatibility: return both formats
     if (documentMetadata && documentMetadata.contenido_documento) {
@@ -58,15 +59,19 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     
     const rowId = formData.get("rowId") as string;
+    const recordId = formData.get("recordId") as string;
     const file = formData.get("file") as File;
     const rutEmpresa = formData.get("rutEmpresa") as string || '';
+    const rutTrabajador = formData.get("rutTrabajador") as string || '';
     
     console.log("Form data received:", 
-      "rowId:", rowId, 
+      "rowId:", rowId,
+      "recordId:", recordId,
       "fileName:", file?.name, 
       "fileSize:", file?.size, 
       "fileType:", file?.type,
-      "rutEmpresa:", rutEmpresa
+      "rutEmpresa:", rutEmpresa,
+      "rutTrabajador:", rutTrabajador
     );
 
     if (!rowId || !file) {
@@ -113,7 +118,9 @@ export async function POST(request: NextRequest) {
         fileName,
         file.type,
         buffer,
-        rutEmpresa
+        rutEmpresa,
+        recordId,
+        rutTrabajador
       );
       console.log("Document saved successfully, metadata:", metadata ? "received" : "null");
 
@@ -123,7 +130,7 @@ export async function POST(request: NextRequest) {
         
         // For backward compatibility also get the single document
         console.log("Getting single document for backward compatibility");
-        const singleDoc = await getDocumentMetadata(rowId);
+        const singleDoc = await getDocumentMetadata(rowId, recordId);
         const singleDocExists = !!singleDoc;
         let singleDocData = null;
         
@@ -181,6 +188,7 @@ export async function DELETE(request: NextRequest) {
     const url = new URL(request.url);
     const rowId = url.searchParams.get("rowId");
     const docId = url.searchParams.get("id_doc");
+    const recordId = url.searchParams.get("recordId") || undefined;
 
     if (!rowId) {
       return NextResponse.json(
@@ -196,7 +204,8 @@ export async function DELETE(request: NextRequest) {
       success = await deleteDocumentById(parseInt(docId));
     } else {
       // For backward compatibility, delete all documents for this row
-      success = await deleteDocument(rowId);
+      // If recordId is provided, delete only documents for this row and recordId
+      success = await deleteDocument(rowId, recordId);
     }
 
     if (!success) {

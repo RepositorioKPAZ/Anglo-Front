@@ -124,7 +124,7 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const { rowId } = await request.json();
-
+    console.log("DELETE: Deleting nomina with identifier:", rowId);
     if (!rowId) {
       return NextResponse.json(
         { error: "ID de fila es requerido" },
@@ -133,7 +133,7 @@ export async function DELETE(request: Request) {
     }
 
     const success = await nominasService.deleteNomina(rowId);
-    
+    console.log("DELETE: Success:", success);
     if (!success) {
       return NextResponse.json(
         { error: "No se encontró la fila especificada" },

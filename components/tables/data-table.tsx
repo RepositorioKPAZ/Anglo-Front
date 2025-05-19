@@ -193,128 +193,103 @@ export function DataTable<TData, TValue>({
 
     try {
       setIsDownloading(true);
+
+      // Show initial loading toast
       toast({
         title: "Preparando archivos para descargar...",
       });
 
+      // Simple direct download
       const queryParams = new URLSearchParams(fileDownloadParams).toString();
       const url = `${fileDownloadUrl}${queryParams ? `?${queryParams}` : ""}`;
 
-      // Fetch the file from the server
+      // Start the download
       const response = await fetch(url);
 
-      // Handle case when the response indicates no files available (204 No Content)
-      if (response.status === 204) {
+      // Handle errors
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || `Error: ${response.status} ${response.statusText}`
+        );
+      }
+
+      // Check content type to determine if it's a file or message
+      const contentType = response.headers.get("Content-Type");
+
+      // If it's JSON, check for error message
+      if (contentType && contentType.includes("application/json")) {
+        const data = await response.json();
+        if (data.message) {
+          toast({
+            title: "No hay archivos disponibles",
+            description: data.message,
+            variant: "destructive",
+          });
+          setIsDownloading(false);
+          return;
+        }
+      }
+
+      // Get the file (must be binary data, not JSON)
+      if (!contentType || !contentType.includes("application/zip")) {
         toast({
-          title: "No hay archivos disponibles para descargar",
-          description: "Por favor, verifique la URL de descarga",
+          title: "Error en la descarga",
+          description: "El formato del archivo recibido no es correcto",
           variant: "destructive",
         });
-        console.log("No hay archivos disponibles para descargar");
+        setIsDownloading(false);
         return;
       }
 
-      if (!response.ok) {
-        // Try to parse error message from JSON response
-        try {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.error ||
-              `Error: ${response.status} ${response.statusText}`
-          );
-        } catch (jsonError) {
-          // If response is not JSON, use status text
-          throw new Error(`Error: ${response.status} ${response.statusText}`);
-        }
-      }
-
-      // Check if response is empty
-      const contentLength = response.headers.get("content-length");
-      if (contentLength === "0") {
-        toast({
-          title: "No hay archivos disponibles para descargar",
-          description: "Por favor, verifique la URL de descarga",
-        });
-        return;
-      }
-
-      // Get the content disposition header to extract the filename
-      const contentDisposition = response.headers.get("content-disposition");
-      let filename = "files.zip";
-
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-        if (filenameMatch && filenameMatch[1]) {
-          filename = filenameMatch[1];
-        }
-      }
-
-      // Update progress toast
-      toast({
-        title: "Recibiendo archivos del servidor...",
-      });
-
-      // Convert the response to a blob
       const blob = await response.blob();
 
-      // Check if the blob is valid
-      if (blob.size === 0) {
+      // Check if blob is valid
+      if (!blob || blob.size === 0) {
         toast({
-          title: "No hay archivos disponibles para descargar",
-          description: "Por favor, verifique la URL de descarga",
+          title: "Error en la descarga",
+          description: "El archivo descargado está vacío",
+          variant: "destructive",
         });
+        setIsDownloading(false);
         return;
       }
 
-      // Update progress toast
-      toast({
-        title: "Iniciando descarga...",
-      });
+      // Get filename from response headers
+      let filename = "archivos.zip";
+      const contentDisposition = response.headers.get("content-disposition");
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if (match && match[1]) filename = match[1];
+      }
 
-      // Create a download link and trigger download
-      const downloadUrl = window.URL.createObjectURL(blob);
+      // Create download link
+      const downloadUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = downloadUrl;
       link.download = filename;
       document.body.appendChild(link);
       link.click();
-      link.remove();
+      document.body.removeChild(link);
 
-      // Release the blob URL after a delay
-      setTimeout(() => {
-        window.URL.revokeObjectURL(downloadUrl);
-      }, 100);
+      // Clean up
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
 
-      // Close the progress toast and show success
+      // Show success
       toast({
-        title: "Archivos descargados correctamente",
-        variant: "default",
-        description: (
-          <div className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-            <p className="text-sm text-muted-foreground">
-              Se han descargado los archivos correctamente (
-              {`${(blob.size / (1024 * 1024)).toFixed(2)} MB`})
-            </p>
-          </div>
-        ),
+        title: "Descarga completada",
+        description: `Tamaño: ${(blob.size / (1024 * 1024)).toFixed(2)} MB`,
       });
     } catch (error) {
       console.error("Error al descargar archivos:", error);
       toast({
         title: "Error al descargar archivos",
         description:
-          error instanceof Error
-            ? error.message
-            : "Error al descargar los archivos",
+          error instanceof Error ? error.message : "Error desconocido",
+        variant: "destructive",
       });
     } finally {
       setIsDownloading(false);
-
-      // Add a small delay to prevent rapid successive clicks
-      setTimeout(() => {
-        // This empty timeout ensures there's a delay before allowing another download
-      }, 1000);
     }
   };
 

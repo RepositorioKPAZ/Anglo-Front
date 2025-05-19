@@ -196,13 +196,16 @@ export class DatabaseNominasService implements NominasService {
 
   async deleteNomina(id: string): Promise<boolean> {
     try {
+      console.log("DELETE: Deleting nomina with identifier:", id);
       // Check if id is numeric (ID) or not (RUT)
       if (/^\d+$/.test(id)) {
         // It's a numeric ID
+        console.log("DELETE: Deleting nomina with ID:", id);
         const result = await db.query('DELETE FROM nominabeca WHERE ID = ?', [id]);
         return result.affectedRows > 0;
       } else {
         // It's a RUT
+        console.log("DELETE: Deleting nomina with RUT:", id);
         const result = await db.query('DELETE FROM nominabeca WHERE Rut = ?', [id]);
         return result.affectedRows > 0;
       }

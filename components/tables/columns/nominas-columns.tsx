@@ -85,11 +85,12 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
       return <div className="text-center">Documento</div>;
     },
     cell: ({ row }: { row: Row<NominaRow> }) => {
-      const rowId = row.original.Rut as string;
+      const rowId = String(row.original.ID);
       return (
         <DocumentStatusCell
           rowId={rowId}
           rutEmpresa={row.original["Rut Empresa"]}
+          rutTrabajador={row.original.Rut}
           isAdmin={true}
         />
       );
@@ -232,6 +233,7 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
             row.original.ID !== undefined ? row.original.ID : row.original.Rut;
 
           setIsDeleting(true);
+          console.log("Deleting row", identifier);
           const response = await fetch("/api/postulaciones/nominas", {
             method: "DELETE",
             headers: {

@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
     const rowId = url.searchParams.get("rowId");
     const fileName = url.searchParams.get("fileName");
     const docId = url.searchParams.get("id_doc");
+    const recordId = url.searchParams.get("recordId") || undefined;
     const isView = url.searchParams.get("view") === "true";
 
     if (!rowId) {
@@ -24,10 +25,10 @@ export async function GET(request: NextRequest) {
       metadata = await getDocumentById(parseInt(docId));
     } else if (fileName) {
       // Get by row ID and filename
-      metadata = await getDocumentByFileName(rowId, fileName);
+      metadata = await getDocumentByFileName(rowId, fileName, recordId);
     } else {
       // Fallback to legacy method - get the first document for this row
-      metadata = await getDocumentMetadata(rowId);
+      metadata = await getDocumentMetadata(rowId, recordId);
     }
 
     if (!metadata) {
