@@ -22,10 +22,10 @@ declare global {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { progressId: string } }
+  { params }: { params: Promise<{ progressId: string }> }
 ) {
-  // Make sure to await params if it's a promise
-  const resolvedParams = params;
+  // Await params since it's a Promise in Next.js 15
+  const resolvedParams = await params;
   const progressId = resolvedParams.progressId;
   
   if (!progressId) {
