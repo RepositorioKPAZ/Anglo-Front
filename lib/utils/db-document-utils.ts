@@ -9,6 +9,7 @@ export type DocumentMetadata = {
   fileType: string;
   contenido_documento: Buffer | null;
   fileSize: number;
+  rutEmpresa?: string;
 };
 
 // Get all documents metadata for a specific row
@@ -24,10 +25,10 @@ export async function getDocumentMetadata(rowId: string, recordId?: string): Pro
         contenido_documento,
         LENGTH(contenido_documento) as fileSize
       FROM documentosajuntos
-      WHERE id_nomina = ?
+      WHERE Ruttrabajador = ? OR (id_nomina = ? AND id_nomina IS NOT NULL)
     `;
     
-    const params = [rowId];
+    const params = [rowId, rowId];
     
     // If recordId is provided, add it to the query
     if (recordId) {
@@ -66,10 +67,10 @@ export async function getAllDocuments(rowId: string, recordId?: string): Promise
         'application/pdf' as fileType,
         LENGTH(contenido_documento) as fileSize
       FROM documentosajuntos
-      WHERE id_nomina = ?
+      WHERE Ruttrabajador = ? OR (id_nomina = ? AND id_nomina IS NOT NULL)
     `;
     
-    const params = [rowId];
+    const params = [rowId, rowId];
     
     // If recordId is provided, add it to the query
     if (recordId) {
@@ -142,10 +143,10 @@ export async function getDocumentByFileName(rowId: string, fileName: string, rec
         contenido_documento,
         LENGTH(contenido_documento) as fileSize
       FROM documentosajuntos
-      WHERE id_nomina = ? AND nombre_documento = ?
+      WHERE (Ruttrabajador = ? OR (id_nomina = ? AND id_nomina IS NOT NULL)) AND nombre_documento = ?
     `;
     
-    const params = [rowId, fileName];
+    const params = [rowId, rowId, fileName];
     
     // If recordId is provided, add it to the query
     if (recordId) {
@@ -286,8 +287,8 @@ export async function deleteDocumentById(docId: number): Promise<boolean> {
 // Delete all documents for a row
 export async function deleteDocument(rowId: string, recordId?: string): Promise<boolean> {
   try {
-    let query = 'DELETE FROM documentosajuntos WHERE id_nomina = ?';
-    const params = [rowId];
+    let query = 'DELETE FROM documentosajuntos WHERE Ruttrabajador = ? OR (id_nomina = ? AND id_nomina IS NOT NULL)';
+    const params = [rowId, rowId];
     
     // If recordId is provided, only delete documents for that specific record
     if (recordId) {

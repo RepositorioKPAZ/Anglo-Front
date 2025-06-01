@@ -40,11 +40,10 @@ export async function GET(request: NextRequest) {
     let documents: DocumentMetadata[] = [];
     try {
       if (tableId === "nominas") {
-        // Get all nomina IDs instead of RUTs
-        const nominasQuery = `SELECT ID FROM nominabeca`;
-        const nominas = await executeQuery<{ID: number}[]>(nominasQuery);
+        // Get nomina records with all necessary data for folder structure
+        const nominasQuery = `SELECT ID, Rut, RutEmpresa, RutBeneficiario FROM nominabeca`;
+        const nominas = await executeQuery<{ID: number, Rut: string, RutEmpresa: string, RutBeneficiario: string}[]>(nominasQuery);
         console.log(`Found ${nominas.length} nominas`);
-        console.log("\n[NOMINAS]", nominas);
         
         if (nominas.length === 0) {
           return NextResponse.json(
@@ -53,17 +52,50 @@ export async function GET(request: NextRequest) {
           );
         }
         
-        // Iterate through each ID and retrieve associated documents
+        // Track processed document IDs to avoid duplicates
+        const processedDocIds = new Set<number>();
+        
+        // Create a map to associate nomina data with documents
+        const nominaMap = new Map<string, {Rut: string, RutEmpresa: string, RutBeneficiario: string}>();
+        nominas.forEach(nomina => {
+          nominaMap.set(String(nomina.ID), {
+            Rut: nomina.Rut || '',
+            RutEmpresa: nomina.RutEmpresa || '',
+            RutBeneficiario: nomina.RutBeneficiario || ''
+          });
+        });
+        
+        // Iterate through each nomina and retrieve associated documents
         for (const nomina of nominas) {
           const nominaId = String(nomina.ID);
           const docs = await getAllDocuments(nominaId);
+          
           if (docs && docs.length > 0) {
             for (const doc of docs) {
-              if (doc.id_doc) {
+              if (doc.id_doc && !processedDocIds.has(doc.id_doc)) {
                 try {
+                  // Track this document to avoid duplicates
+                  processedDocIds.add(doc.id_doc);
+                  
                   // Get full document content for each document ID
                   const fullDoc = await getDocumentById(doc.id_doc);
                   if (fullDoc && fullDoc.contenido_documento) {
+                    // Add nomina metadata to the document for folder structure
+                    const nominaData = nominaMap.get(nominaId);
+                    if (nominaData) {
+                      // Use the empresa RUT from the document itself (more reliable)
+                      (fullDoc as any).empresaRut = fullDoc.rutEmpresa || nominaData.RutEmpresa || 'unknown-empresa';
+                      (fullDoc as any).beneficiarioRut = nominaData.RutBeneficiario || nominaData.Rut || 'unknown-beneficiario'; // Use RutBeneficiario if available, otherwise fall back to Rut
+                      // trabajadorRut comes from Ruttrabajador in the document (stored as rowId)
+                      (fullDoc as any).trabajadorRut = fullDoc.rowId || 'unknown-trabajador'; // rowId comes from Ruttrabajador in the document
+                      
+                    } else {
+                      console.warn(`No nomina data found for nominaId: ${nominaId}`);
+                      // Set default values when nomina data is not found
+                      (fullDoc as any).empresaRut = fullDoc.rutEmpresa || 'unknown-empresa';
+                      (fullDoc as any).trabajadorRut = fullDoc.rowId || 'unknown-trabajador';
+                      (fullDoc as any).beneficiarioRut = 'unknown-beneficiario';
+                    }
                     documents.push(fullDoc);
                   }
                 } catch (err) {
@@ -147,18 +179,32 @@ export async function GET(request: NextRequest) {
       
       for (const doc of documents) {
         if (doc.contenido_documento && doc.contenido_documento.length > 0) {
-          // Create folder name based on document rowId
-          const folderName = doc.rowId ? doc.rowId.replace(/[^a-zA-Z0-9-_]/g, '_') : 'unknown';
           try {
+            // Extract folder structure data
+            const empresaRut = (doc as any).empresaRut || 'unknown-empresa';
+            const trabajadorRut = (doc as any).trabajadorRut || 'unknown-trabajador';
+            const beneficiarioRut = (doc as any).beneficiarioRut || 'unknown-beneficiario';
+            
+            // Sanitize folder names to remove invalid characters
+            const sanitizeRut = (rut: string) => rut.replace(/[^a-zA-Z0-9-_]/g, '_');
+            const empresaFolder = `emp_${sanitizeRut(empresaRut)}`;
+            const trabajadorFolder = `trab_${sanitizeRut(trabajadorRut)}`;
+            const beneficiarioFolder = `ben_${sanitizeRut(beneficiarioRut)}`;
+            
+            // Create hierarchical folder path: empresa/trabajador/beneficiario/file.pdf
+            const folderPath = `archivos-nominas/${empresaFolder}/${trabajadorFolder}/${beneficiarioFolder}`;
+            const fileName = doc.fileName || `document_${fileCount}.pdf`;
+            const fullPath = `${folderPath}/${fileName}`;
+            
             // Log information about the document for debugging
-            console.log(`Adding file: ${doc.fileName || 'unnamed'}, Size: ${doc.contenido_documento.length} bytes`);
+            console.log(`Adding file: ${fullPath}, Size: ${doc.contenido_documento.length} bytes`);
             
             // Ensure we have a buffer of the right type
             const fileData = Buffer.from(doc.contenido_documento);
             
-            // Add document to archive with appropriate path
+            // Add document to archive with hierarchical path
             archive.append(fileData, { 
-              name: `${folderName}/${doc.fileName || `document_${fileCount}`}`
+              name: fullPath
             });
             
             fileCount++;
