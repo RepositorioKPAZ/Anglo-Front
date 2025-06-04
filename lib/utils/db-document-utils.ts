@@ -28,7 +28,9 @@ export async function getDocumentMetadata(rowId: string, recordId?: string): Pro
       WHERE Ruttrabajador = ? OR (id_nomina = ? AND id_nomina IS NOT NULL)
     `;
     
-    const params = [rowId, rowId];
+    // Convert rowId to integer for id_nomina comparison
+    const nominaId = parseInt(rowId);
+    const params = [rowId, isNaN(nominaId) ? null : nominaId];
     
     // If recordId is provided, add it to the query
     if (recordId) {
@@ -70,7 +72,9 @@ export async function getAllDocuments(rowId: string, recordId?: string): Promise
       WHERE Ruttrabajador = ? OR (id_nomina = ? AND id_nomina IS NOT NULL)
     `;
     
-    const params = [rowId, rowId];
+    // Convert rowId to integer for id_nomina comparison
+    const nominaId = parseInt(rowId);
+    const params = [rowId, isNaN(nominaId) ? null : nominaId];
     
     // If recordId is provided, add it to the query
     if (recordId) {
@@ -146,7 +150,9 @@ export async function getDocumentByFileName(rowId: string, fileName: string, rec
       WHERE (Ruttrabajador = ? OR (id_nomina = ? AND id_nomina IS NOT NULL)) AND nombre_documento = ?
     `;
     
-    const params = [rowId, rowId, fileName];
+    // Convert rowId to integer for id_nomina comparison
+    const nominaId = parseInt(rowId);
+    const params = [rowId, isNaN(nominaId) ? null : nominaId, fileName];
     
     // If recordId is provided, add it to the query
     if (recordId) {
@@ -220,7 +226,9 @@ export async function saveDocument(
     `;
     // Use rutTrabajador if provided, otherwise fall back to rowId
     const rut = rutTrabajador || rowId;
-    const params = [rutEmpresa, rut, fileName, fileContent, rowId];
+    // Convert rowId to integer for id_nomina, or null if not a valid number
+    const nominaId = parseInt(rowId);
+    const params = [rutEmpresa, rut, fileName, fileContent, isNaN(nominaId) ? null : nominaId];
     
     console.log("Executing query:", query.replace(/\s+/g, ' '));
     console.log("With params:", JSON.stringify([
@@ -228,7 +236,7 @@ export async function saveDocument(
       rut,
       fileName, 
       fileContent ? "BUFFER_DATA" : null,
-      rowId // id_nomina
+      isNaN(nominaId) ? null : nominaId // id_nomina as int
     ]));
     
     try {
@@ -288,7 +296,9 @@ export async function deleteDocumentById(docId: number): Promise<boolean> {
 export async function deleteDocument(rowId: string, recordId?: string): Promise<boolean> {
   try {
     let query = 'DELETE FROM documentosajuntos WHERE Ruttrabajador = ? OR (id_nomina = ? AND id_nomina IS NOT NULL)';
-    const params = [rowId, rowId];
+    // Convert rowId to integer for id_nomina comparison
+    const nominaId = parseInt(rowId);
+    const params = [rowId, isNaN(nominaId) ? null : nominaId];
     
     // If recordId is provided, only delete documents for that specific record
     if (recordId) {

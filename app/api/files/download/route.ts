@@ -21,6 +21,8 @@ export async function GET(request: NextRequest) {
     // Extract and validate query parameters
     const { searchParams } = new URL(request.url);
     const tableId = searchParams.get("tableId");
+    const empresaRut = searchParams.get("empresaRut");
+    const listEmpresas = searchParams.get("listEmpresas");
     
     // Validate request
     if (!tableId) {
@@ -31,23 +33,60 @@ export async function GET(request: NextRequest) {
     }
 
     // Log the request
-    console.log(`File download requested for table: ${tableId}`);
+    console.log(`File download requested for table: ${tableId}`, { empresaRut, listEmpresas });
     
     /********************************************
-     * SECTION 2: DATABASE DOCUMENT RETRIEVAL
+     * SECTION 2: LIST EMPRESAS MODE
      ********************************************/
-    // Fetch relevant documents based on tableId
+    if (listEmpresas === "true") {
+      if (tableId === "nominas") {
+        // Get list of empresas that have documents
+        const empresasQuery = `
+          SELECT DISTINCT n.RutEmpresa as empresaRut, COUNT(d.id_doc) as documentCount
+          FROM nominabeca n
+          INNER JOIN documentosajuntos d ON (d.Ruttrabajador = n.Rut OR d.id_nomina = n.ID)
+          WHERE n.RutEmpresa IS NOT NULL AND n.RutEmpresa != ''
+          GROUP BY n.RutEmpresa
+          HAVING documentCount > 0
+          ORDER BY n.RutEmpresa
+        `;
+        
+        const empresas = await executeQuery<{empresaRut: string, documentCount: number}[]>(empresasQuery);
+        console.log(`Found ${empresas.length} empresas with documents`);
+        
+        return NextResponse.json({
+          empresas: empresas.map(emp => ({
+            rut: emp.empresaRut,
+            documentCount: emp.documentCount
+          }))
+        });
+      }
+      
+      return NextResponse.json({ empresas: [] });
+    }
+    
+    /********************************************
+     * SECTION 3: SINGLE EMPRESA DOWNLOAD MODE
+     ********************************************/
+    if (!empresaRut) {
+      return NextResponse.json(
+        { error: "Missing required parameter: empresaRut for individual download" },
+        { status: 400 }
+      );
+    }
+    
+    // Fetch relevant documents based on tableId and empresaRut
     let documents: DocumentMetadata[] = [];
     try {
       if (tableId === "nominas") {
-        // Get nomina records with all necessary data for folder structure
-        const nominasQuery = `SELECT ID, Rut, RutEmpresa, RutBeneficiario FROM nominabeca`;
-        const nominas = await executeQuery<{ID: number, Rut: string, RutEmpresa: string, RutBeneficiario: string}[]>(nominasQuery);
-        console.log(`Found ${nominas.length} nominas`);
+        // Get nomina records for specific empresa with all necessary data for folder structure
+        const nominasQuery = `SELECT ID, Rut, RutEmpresa, RutBeneficiario FROM nominabeca WHERE RutEmpresa = ?`;
+        const nominas = await executeQuery<{ID: number, Rut: string, RutEmpresa: string, RutBeneficiario: string}[]>(nominasQuery, [empresaRut]);
+        console.log(`Found ${nominas.length} nominas for empresa ${empresaRut}`);
         
         if (nominas.length === 0) {
           return NextResponse.json(
-            { message: "No hay registros de nóminas en la base de datos" },
+            { message: `No hay registros de nóminas para la empresa ${empresaRut}` },
             { status: 200 }
           );
         }
@@ -121,24 +160,25 @@ export async function GET(request: NextRequest) {
     }
 
     // Log document count
-    console.log(`Found ${documents.length} documents to download`);
+    console.log(`Found ${documents.length} documents to download for empresa ${empresaRut}`);
     
     // Early return if no documents found
     if (documents.length === 0) {
       return NextResponse.json(
-        { message: "No hay archivos disponibles para descargar" }, 
+        { message: `No hay archivos disponibles para la empresa ${empresaRut}` }, 
         { status: 200 }
       );
     }
     
     /********************************************
-     * SECTION 3: ZIP ARCHIVE CREATION
+     * SECTION 4: ZIP ARCHIVE CREATION FOR SINGLE EMPRESA
      ********************************************/
-    // Create a simple timestamp-based filename
+    // Create a empresa-specific filename
     const timestamp = new Date().toISOString().slice(0, 10);
-    const filename = `${tableId}-files-${timestamp}.zip`;
+    const sanitizedEmpresaRut = empresaRut.replace(/[^a-zA-Z0-9-_]/g, '_');
+    const filename = `empresa_${sanitizedEmpresaRut}_${timestamp}.zip`;
     
-    // Create and return the zip directly - no batching, no progress tracking
+    // Create and return the zip directly
     try {
       // Setup for in-memory ZIP creation
       const chunks: Buffer[] = [];
@@ -173,7 +213,7 @@ export async function GET(request: NextRequest) {
       });
       
       /********************************************
-       * SECTION 4: ADDING FILES TO ARCHIVE
+       * SECTION 5: ADDING FILES TO ARCHIVE
        ********************************************/
       let fileCount = 0;
       
@@ -192,7 +232,7 @@ export async function GET(request: NextRequest) {
             const beneficiarioFolder = `ben_${sanitizeRut(beneficiarioRut)}`;
             
             // Create hierarchical folder path: empresa/trabajador/beneficiario/file.pdf
-            const folderPath = `archivos-nominas/${empresaFolder}/${trabajadorFolder}/${beneficiarioFolder}`;
+            const folderPath = `${empresaFolder}/${trabajadorFolder}/${beneficiarioFolder}`;
             const fileName = doc.fileName || `document_${fileCount}.pdf`;
             const fullPath = `${folderPath}/${fileName}`;
             
@@ -224,10 +264,10 @@ export async function GET(request: NextRequest) {
         );
       }
       
-      console.log(`Added ${fileCount} files to archive`);
+      console.log(`Added ${fileCount} files to archive for empresa ${empresaRut}`);
       
       /********************************************
-       * SECTION 5: FINALIZING AND RETURNING RESPONSE
+       * SECTION 6: FINALIZING AND RETURNING RESPONSE
        ********************************************/
       // Complete the archive creation process
       archive.finalize();
@@ -243,7 +283,7 @@ export async function GET(request: NextRequest) {
         );
       }
       
-      console.log(`Successfully created ZIP with ${fileCount} files, Size: ${zipBuffer.length} bytes`);
+      console.log(`Successfully created ZIP for empresa ${empresaRut} with ${fileCount} files, Size: ${zipBuffer.length} bytes`);
       
       // Return the zip file as response with appropriate headers
       return new NextResponse(zipBuffer, {

@@ -196,90 +196,152 @@ export function DataTable<TData, TValue>({
 
       // Show initial loading toast
       toast({
-        title: "Preparando archivos para descargar...",
+        title: "Preparando descarga de archivos...",
+        description: "Obteniendo lista de empresas",
       });
 
-      // Simple direct download
-      const queryParams = new URLSearchParams(fileDownloadParams).toString();
-      const url = `${fileDownloadUrl}${queryParams ? `?${queryParams}` : ""}`;
+      // First, get the list of empresas
+      const queryParams = new URLSearchParams({
+        ...fileDownloadParams,
+        listEmpresas: "true",
+      }).toString();
+      const listUrl = `${fileDownloadUrl}?${queryParams}`;
 
-      // Start the download
-      const response = await fetch(url);
+      const listResponse = await fetch(listUrl);
 
-      // Handle errors
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+      if (!listResponse.ok) {
+        const errorData = await listResponse.json().catch(() => ({}));
         throw new Error(
-          errorData.error || `Error: ${response.status} ${response.statusText}`
+          errorData.error ||
+            `Error: ${listResponse.status} ${listResponse.statusText}`
         );
       }
 
-      // Check content type to determine if it's a file or message
-      const contentType = response.headers.get("Content-Type");
+      const { empresas } = await listResponse.json();
 
-      // If it's JSON, check for error message
-      if (contentType && contentType.includes("application/json")) {
-        const data = await response.json();
-        if (data.message) {
+      if (!empresas || empresas.length === 0) {
+        toast({
+          title: "No hay archivos disponibles",
+          description: "No se encontraron empresas con documentos",
+          variant: "destructive",
+        });
+        setIsDownloading(false);
+        return;
+      }
+
+      toast({
+        title: `Iniciando descarga de ${empresas.length} empresa(s)`,
+        description: "Los archivos se descargarán uno por uno",
+      });
+
+      // Download each empresa sequentially
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (let i = 0; i < empresas.length; i++) {
+        const empresa = empresas[i];
+
+        try {
+          // Update progress toast
           toast({
-            title: "No hay archivos disponibles",
-            description: data.message,
+            title: `Descargando empresa ${i + 1} de ${empresas.length}`,
+            description: `RUT: ${empresa.rut} (${empresa.documentCount} documentos)`,
+          });
+
+          // Download individual empresa
+          const empresaParams = new URLSearchParams({
+            ...fileDownloadParams,
+            empresaRut: empresa.rut,
+          }).toString();
+          const empresaUrl = `${fileDownloadUrl}?${empresaParams}`;
+
+          const response = await fetch(empresaUrl);
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(
+              errorData.error ||
+                `Error: ${response.status} ${response.statusText}`
+            );
+          }
+
+          // Check content type
+          const contentType = response.headers.get("Content-Type");
+
+          if (contentType && contentType.includes("application/json")) {
+            const data = await response.json();
+            if (data.message) {
+              console.warn(
+                `No documents for empresa ${empresa.rut}: ${data.message}`
+              );
+              continue; // Skip this empresa
+            }
+          }
+
+          if (!contentType || !contentType.includes("application/zip")) {
+            throw new Error("El formato del archivo recibido no es correcto");
+          }
+
+          const blob = await response.blob();
+
+          if (!blob || blob.size === 0) {
+            throw new Error("El archivo descargado está vacío");
+          }
+
+          // Get filename from response headers
+          let filename = `empresa_${empresa.rut.replace(/[^a-zA-Z0-9-_]/g, "_")}.zip`;
+          const contentDisposition = response.headers.get(
+            "content-disposition"
+          );
+          if (contentDisposition) {
+            const match = contentDisposition.match(/filename="(.+)"/);
+            if (match && match[1]) filename = match[1];
+          }
+
+          // Create download link
+          const downloadUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = downloadUrl;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+          // Clean up
+          setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
+
+          successCount++;
+
+          // Small delay between downloads to avoid overwhelming the browser
+          if (i < empresas.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          }
+        } catch (error) {
+          console.error(`Error downloading empresa ${empresa.rut}:`, error);
+          errorCount++;
+
+          toast({
+            title: `Error descargando empresa ${empresa.rut}`,
+            description:
+              error instanceof Error ? error.message : "Error desconocido",
             variant: "destructive",
           });
-          setIsDownloading(false);
-          return;
         }
       }
 
-      // Get the file (must be binary data, not JSON)
-      if (!contentType || !contentType.includes("application/zip")) {
+      // Show final summary
+      if (successCount > 0) {
+        toast({
+          title: "Descarga completada",
+          description: `${successCount} empresa(s) descargada(s) exitosamente${errorCount > 0 ? `. ${errorCount} falló(s)` : ""}`,
+        });
+      } else {
         toast({
           title: "Error en la descarga",
-          description: "El formato del archivo recibido no es correcto",
+          description: "No se pudieron descargar archivos de ninguna empresa",
           variant: "destructive",
         });
-        setIsDownloading(false);
-        return;
       }
-
-      const blob = await response.blob();
-
-      // Check if blob is valid
-      if (!blob || blob.size === 0) {
-        toast({
-          title: "Error en la descarga",
-          description: "El archivo descargado está vacío",
-          variant: "destructive",
-        });
-        setIsDownloading(false);
-        return;
-      }
-
-      // Get filename from response headers
-      let filename = "archivos.zip";
-      const contentDisposition = response.headers.get("content-disposition");
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename="(.+)"/);
-        if (match && match[1]) filename = match[1];
-      }
-
-      // Create download link
-      const downloadUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // Clean up
-      setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
-
-      // Show success
-      toast({
-        title: "Descarga completada",
-        description: `Tamaño: ${(blob.size / (1024 * 1024)).toFixed(2)} MB`,
-      });
     } catch (error) {
       console.error("Error al descargar archivos:", error);
       toast({
