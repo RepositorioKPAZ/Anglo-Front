@@ -8,7 +8,7 @@ const dbConfig = {
   port: parseInt(process.env.DB_PORT || '3306'),
   database: process.env.DB_NAME,
   ssl: process.env.DB_SSL === 'true' ? {
-    rejectUnauthorized: true
+    rejectUnauthorized: false // Azure Database often requires this to be false
   } : undefined,
   waitForConnections: true,
   connectionLimit: parseInt(process.env.DB_POOL_MAX || '10'),
@@ -43,36 +43,48 @@ export async function getConnection() {
 export async function executeQuery<T>(query: string, params: any[] = []): Promise<T> {
   let connection = null;
   try {
-    console.log(`Executing query: ${query.slice(0, 50)}${query.length > 50 ? '...' : ''}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`Executing query: ${query.slice(0, 50)}${query.length > 50 ? '...' : ''}`);
+    }
     connection = await getConnection();
-    console.log('Got connection, executing query now');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Got connection, executing query now');
+    }
     
     // Sanitize params for logging (remove large buffers)
     const sanitizedParams = params.map(p => {
       if (p instanceof Buffer) return `Buffer(${p.length} bytes)`;
       return p;
     });
-    console.log('Query params:', JSON.stringify(sanitizedParams));
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Query params:', JSON.stringify(sanitizedParams));
+    }
     
     const [results] = await connection.execute(query, params);
-    console.log('Query executed successfully, result count:', 
-      Array.isArray(results) ? results.length : 
-      (results && typeof results === 'object' && 'affectedRows' in results) ? `${results.affectedRows} affected rows` : 
-      'unknown'
-    );
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Query executed successfully, result count:', 
+        Array.isArray(results) ? results.length : 
+        (results && typeof results === 'object' && 'affectedRows' in results) ? `${results.affectedRows} affected rows` : 
+        'unknown'
+      );
+    }
     return results as T;
   } catch (error) {
     console.error('Error executing query:', error);
-    console.error('Query that failed:', query);
-    console.error('Params that failed:', params.map(p => {
-      if (p instanceof Buffer) return `Buffer(${p.length} bytes)`;
-      return p;
-    }));
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Query that failed:', query);
+      console.error('Params that failed:', params.map(p => {
+        if (p instanceof Buffer) return `Buffer(${p.length} bytes)`;
+        return p;
+      }));
+    }
     throw error;
   } finally {
     if (connection) {
       connection.release();
-      console.log('Database connection released');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Database connection released');
+      }
     }
   }
 }
