@@ -187,7 +187,7 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
             );
           }
 
-          console.log("editedData Nominas", transformedData);
+          //console.log("editedData Nominas", transformedData);
           const response = await fetch("/api/postulaciones/nominas", {
             method: "PATCH",
             headers: {
@@ -233,7 +233,7 @@ export const nominasColumns: ColumnDef<NominaRow>[] = [
             row.original.ID !== undefined ? row.original.ID : row.original.Rut;
 
           setIsDeleting(true);
-          console.log("Deleting row", identifier);
+          //console.log("Deleting row", identifier);
           const response = await fetch("/api/postulaciones/nominas", {
             method: "DELETE",
             headers: {

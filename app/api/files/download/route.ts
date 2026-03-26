@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Log the request
-    console.log(`File download requested for table: ${tableId}`, { empresaRut, listEmpresas });
+    // console.log(`File download requested for table: ${tableId}`, { empresaRut, listEmpresas });
     
     /********************************************
      * SECTION 2: LIST EMPRESAS MODE
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         const empresasQuery = `
           SELECT DISTINCT n.RutEmpresa as empresaRut, COUNT(d.id_doc) as documentCount
           FROM nominabeca n
-          INNER JOIN documentosajuntos d ON (d.Ruttrabajador = n.Rut OR d.id_nomina = n.ID)
+          INNER JOIN documentosajuntos d ON d.id_nomina = n.ID
           WHERE n.RutEmpresa IS NOT NULL AND n.RutEmpresa != ''
           GROUP BY n.RutEmpresa
           HAVING documentCount > 0
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
         `;
         
         const empresas = await executeQuery<{empresaRut: string, documentCount: number}[]>(empresasQuery);
-        console.log(`Found ${empresas.length} empresas with documents`);
+        //console.log(`Found ${empresas.length} empresas with documents`);
         
         return NextResponse.json({
           empresas: empresas.map(emp => ({
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
         // Get nomina records for specific empresa with all necessary data for folder structure
         const nominasQuery = `SELECT ID, Rut, RutEmpresa, RutBeneficiario FROM nominabeca WHERE RutEmpresa = ?`;
         const nominas = await executeQuery<{ID: number, Rut: string, RutEmpresa: string, RutBeneficiario: string}[]>(nominasQuery, [empresaRut]);
-        console.log(`Found ${nominas.length} nominas for empresa ${empresaRut}`);
+        //console.log(`Found ${nominas.length} nominas for empresa ${empresaRut}`);
         
         if (nominas.length === 0) {
           return NextResponse.json(
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
           }
         }
       } else {
-        console.log(`Table ${tableId} not supported`);
+        //console.log(`Table ${tableId} not supported`);
         return NextResponse.json(
           { message: `La tabla "${tableId}" no está soportada para descarga de archivos` },
           { status: 400 }
@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Log document count
-    console.log(`Found ${documents.length} documents to download for empresa ${empresaRut}`);
+    //console.log(`Found ${documents.length} documents to download for empresa ${empresaRut}`);
     
     // Early return if no documents found
     if (documents.length === 0) {
@@ -202,7 +202,7 @@ export async function GET(request: NextRequest) {
       const archivePromise = new Promise<Buffer>((resolve, reject) => {
         archive.on("end", () => {
           const buffer = Buffer.concat(chunks);
-          console.log(`Archive created: ${buffer.length} bytes`);
+          //console.log(`Archive created: ${buffer.length} bytes`);
           resolve(buffer);
         });
         
@@ -237,7 +237,7 @@ export async function GET(request: NextRequest) {
             const fullPath = `${folderPath}/${fileName}`;
             
             // Log information about the document for debugging
-            console.log(`Adding file: ${fullPath}, Size: ${doc.contenido_documento.length} bytes`);
+            //console.log(`Adding file: ${fullPath}, Size: ${doc.contenido_documento.length} bytes`);
             
             // Ensure we have a buffer of the right type
             const fileData = Buffer.from(doc.contenido_documento);
@@ -264,7 +264,7 @@ export async function GET(request: NextRequest) {
         );
       }
       
-      console.log(`Added ${fileCount} files to archive for empresa ${empresaRut}`);
+      //console.log(`Added ${fileCount} files to archive for empresa ${empresaRut}`);
       
       /********************************************
        * SECTION 6: FINALIZING AND RETURNING RESPONSE
@@ -283,7 +283,7 @@ export async function GET(request: NextRequest) {
         );
       }
       
-      console.log(`Successfully created ZIP for empresa ${empresaRut} with ${fileCount} files, Size: ${zipBuffer.length} bytes`);
+      //console.log(`Successfully created ZIP for empresa ${empresaRut} with ${fileCount} files, Size: ${zipBuffer.length} bytes`);
       
       // Return the zip file as response with appropriate headers
       return new NextResponse(zipBuffer, {

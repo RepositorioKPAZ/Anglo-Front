@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 // POST endpoint to upload a document
 export async function POST(request: NextRequest) {
   try {
-    console.log("POST request received to upload document");
+    //console.log("POST request received to upload document");
     
     const formData = await request.formData();
     
@@ -105,13 +105,13 @@ export async function POST(request: NextRequest) {
     const fileName = file.name;
     
     // Convert file to buffer
-    console.log("Converting file to buffer");
+    //console.log("Converting file to buffer");
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    console.log("Buffer created, size:", buffer.length);
+    //console.log("Buffer created, size:", buffer.length);
 
     // Save to database (now always saves as a new document)
-    console.log("Saving document to database");
+    //console.log("Saving document to database");
     try {
       const metadata = await saveDocument(
         rowId,
@@ -122,14 +122,14 @@ export async function POST(request: NextRequest) {
         recordId,
         rutTrabajador
       );
-      console.log("Document saved successfully, metadata:", metadata ? "received" : "null");
+      //console.log("Document saved successfully, metadata:", metadata ? "received" : "null");
 
       // Return success response without the actual document content
       if (metadata && metadata.contenido_documento) {
         const { contenido_documento, ...metadataWithoutContent } = metadata;
         
         // For backward compatibility also get the single document
-        console.log("Getting single document for backward compatibility");
+        //console.log("Getting single document for backward compatibility");
         const singleDoc = await getDocumentMetadata(rowId, recordId);
         const singleDocExists = !!singleDoc;
         let singleDocData = null;

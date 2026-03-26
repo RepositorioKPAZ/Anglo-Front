@@ -16,6 +16,8 @@ const protectedPaths = [
 const publicPaths = [
   '/',
   '/db-sign-in',
+  '/resultados-sign-in',
+  '/resultados/consulta',
   '/sign-in',
   '/sign-up',
   '/forgot-password'
@@ -84,6 +86,8 @@ export const config = {
     // Auth routes
     "/",
     "/db-sign-in",
+    "/resultados-sign-in",
+    "/resultados/consulta",
     "/sign-in",
     "/sign-up",
     "/forgot-password",

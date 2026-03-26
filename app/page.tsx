@@ -4,8 +4,14 @@ import Image from "next/image";
 import multibienLogo from "@/lib/images/multibien-logo.webp";
 import HeaderAuth from "@/components/header-auth";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { tipoLoginActivo } from "@/lib/services/estado-service";
 
 export default async function Home() {
+  const tipoLogin = await tipoLoginActivo();
+  const ingresoHabilitado = tipoLogin !== "ninguno";
+  const hrefIngreso =
+    tipoLogin === "resultados" ? "/resultados-sign-in" : "/db-sign-in";
+
   return (
     <main className="min-h-screen flex flex-col items-center">
       <div className="flex-1 w-full flex flex-col gap-20 items-center">
@@ -25,11 +31,17 @@ export default async function Home() {
           <DeployButton />
         </div> */}
             </div>
-            <HeaderAuth />
+            <HeaderAuth
+              mostrarIngresoInvitado={ingresoHabilitado}
+              hrefIngreso={hrefIngreso}
+            />
           </div>
         </nav>
         <div className="flex flex-col gap-20 max-w-5xl p-5">
-          <Hero />
+          <Hero
+            mostrarBotonIngreso={ingresoHabilitado}
+            hrefIngreso={hrefIngreso}
+          />
           <main className="flex-1 flex flex-col max-w-7xl mx-auto px-4 md:px-8 lg:px-16 py-24 space-y-32">
             {/* Features Section */}
             <section>

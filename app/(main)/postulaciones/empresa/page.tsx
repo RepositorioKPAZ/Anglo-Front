@@ -68,11 +68,11 @@ function EmpresaPage() {
         }
 
         const data = await response.json();
-        console.log("API response data:", data);
+        // console.log("API response data:", data);
 
         // Transform the data to match the expected format
         const transformedData = mapToPostulacionEmpresa(data);
-        console.log("Transformed data:", transformedData);
+        //console.log("Transformed data:", transformedData);
 
         setEmpresaData(transformedData);
       } catch (err) {

@@ -78,7 +78,11 @@ export default function DocumentStatusCell({
 
   // Check if document exists for this row
   const checkDocument = async () => {
-    if (!rowId) return;
+    if (!rowId?.trim()) {
+      setDocuments([]);
+      setLoading(false);
+      return;
+    }
 
     try {
       console.log(
@@ -102,7 +106,7 @@ export default function DocumentStatusCell({
       }
 
       const data = await response.json();
-      console.log("Document check response:", data);
+      //console.log("Document check response:", data);
 
       // Handle both new and old API response formats for backward compatibility
       if (Array.isArray(data.documents)) {
@@ -114,11 +118,11 @@ export default function DocumentStatusCell({
         // New format: array of documents
         setDocuments(data.documents);
       } else if (data.exists && data.metadata) {
-        console.log("Setting single document from metadata");
+        //console.log("Setting single document from metadata");
         // Old format: single document
         setDocuments(data.metadata ? [data.metadata] : []);
       } else {
-        console.log("No documents found");
+        //console.log("No documents found");
         // No documents or empty array
         setDocuments([]);
       }
@@ -167,9 +171,18 @@ export default function DocumentStatusCell({
 
   // Handle file upload
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!rowId?.trim()) {
+      toast({
+        title: "No se puede subir el archivo",
+        description: "Falta el ID de la nómina en el registro.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const file = event.target.files?.[0];
     if (!file) {
-      console.log("No file selected");
+      //console.log("No file selected");
       return;
     }
 
@@ -214,7 +227,7 @@ export default function DocumentStatusCell({
       toast({
         title: "Subiendo documento...",
       });
-      console.log("Starting upload for rowId:", rowId);
+      //console.log("Starting upload for rowId:", rowId);
 
       const formData = new FormData();
       formData.append("rowId", rowId);
@@ -239,13 +252,13 @@ export default function DocumentStatusCell({
         rutTrabajador
       );
 
-      console.log("Sending POST request to:", apiBase);
+      //console.log("Sending POST request to:", apiBase);
       const response = await fetch(apiBase, {
         method: "POST",
         body: formData,
       });
 
-      console.log("Response status:", response.status);
+      //console.log("Response status:", response.status);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -256,15 +269,15 @@ export default function DocumentStatusCell({
       }
 
       const result = await response.json();
-      console.log("Upload success response:", result);
+      //console.log("Upload success response:", result);
 
       // Handle both new and old API response formats for backward compatibility
       if (result.metadata) {
-        console.log("Adding document with new format:", result.metadata);
+        //console.log("Adding document with new format:", result.metadata);
         // New format: metadata of the newly uploaded document
         setDocuments((prev) => [...prev, result.metadata]);
       } else if (result.exists && result.document) {
-        console.log("Replacing documents with old format:", result.document);
+        //console.log("Replacing documents with old format:", result.document);
         // Old format: complete document replacement
         setDocuments([result.document]);
       } else {
@@ -458,11 +471,12 @@ export default function DocumentStatusCell({
             {documents.length > 0 ? (
               <div className="relative">
                 <Paperclip className="h-4 w-4" />
-                {documents.length > 1 && (
-                  <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                    {documents.length}
-                  </span>
-                )}
+                <span
+                  className="absolute -top-2 -right-2 bg-blue-500 text-white text-[10px] font-medium leading-none px-1 min-h-4 min-w-4 flex items-center justify-center rounded-full"
+                  aria-label={`${documents.length} archivos`}
+                >
+                  {documents.length}
+                </span>
               </div>
             ) : (
               <Upload className="h-4 w-4" />
@@ -554,14 +568,20 @@ export default function DocumentStatusCell({
                 {uploadError}
               </div>
             )}
-            <label className="flex items-center cursor-pointer hover:bg-accent hover:text-accent-foreground duration-200 h-8 px-2 py-1.5 text-sm rounded-sm w-full justify-center bg-blue-500 text-white">
+            <label
+              className={`flex items-center duration-200 h-8 px-2 py-1.5 text-sm rounded-sm w-full justify-center ${
+                rowId?.trim()
+                  ? "cursor-pointer hover:bg-accent hover:text-accent-foreground bg-blue-500 text-white"
+                  : "cursor-not-allowed bg-muted text-muted-foreground"
+              }`}
+            >
               <input
                 type="file"
                 className="hidden"
                 accept="application/pdf"
                 onChange={handleUpload}
                 key={fileInputKey}
-                disabled={uploading}
+                disabled={uploading || !rowId?.trim()}
               />
               {uploading ? (
                 <>

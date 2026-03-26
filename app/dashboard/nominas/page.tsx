@@ -14,7 +14,7 @@ export default function NominasPage() {
 
   const fetchNominas = useCallback(async () => {
     try {
-      console.log("Fetching nominas data...");
+      //console.log("Fetching nominas data...");
       setIsLoading(true);
       const response = await fetch("/api/dashboard/nominas");
 
@@ -24,7 +24,7 @@ export default function NominasPage() {
       }
 
       const data = await response.json();
-      console.log("Nominas data fetched:", data);
+      //console.log("Nominas data fetched:", data);
 
       if (Array.isArray(data)) {
         // && data.length > 0
@@ -48,7 +48,7 @@ export default function NominasPage() {
   // Debug: Display state in development
   useEffect(() => {
     if (process.env.NODE_ENV === "development") {
-      console.log("Current nominasData state:", nominasData);
+      //console.log("Current nominasData state:", nominasData);
     }
   }, [nominasData]);
 

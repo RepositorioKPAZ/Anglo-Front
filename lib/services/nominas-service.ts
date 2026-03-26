@@ -17,19 +17,9 @@ export class DatabaseNominasService implements NominasService {
       const result = await db.query<DatabaseNomina[]>('SELECT * FROM nominabeca');
       console.log(`Found ${result.length} nominas in database`);
       
-      // Debug: log the first result to check structure
-      if (result.length > 0) {
-        console.log("Sample database record:", JSON.stringify(result[0], null, 2));
-      }
-      
       try {
         const mappedResults = result.map(mapFromDatabase);
-        console.log(`Successfully mapped ${mappedResults.length} records`);
-        
-        // Debug: log the first mapped result
-        if (mappedResults.length > 0) {
-          console.log("Sample mapped record:", JSON.stringify(mappedResults[0], null, 2));
-        }
+        console.log(`Mapped ${mappedResults.length} nominas`);
         
         return mappedResults;
       } catch (mappingError) {

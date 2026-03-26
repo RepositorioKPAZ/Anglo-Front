@@ -12,9 +12,9 @@ export async function GET(request: Request) {
       );
     }
 
-    console.log(`Fetching nominas for empresa with RUT: ${rutEmpresa}`);
+    //console.log(`Fetching nominas for empresa with RUT: ${rutEmpresa}`);
     const nominas = await nominasService.getNominasByEmpresa(rutEmpresa);
-    console.log(`Found ${nominas.length} records for empresa ${rutEmpresa}`);
+    //console.log(`Found ${nominas.length} records for empresa ${rutEmpresa}`);
     return NextResponse.json(nominas);
   } catch (error) {
     console.error("Error fetching nominas:", error);
@@ -39,8 +39,8 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log(`POST: Received ${nominas.length} nominas to create`);
-    console.log("nominas", nominas);
+    //console.log(`POST: Received ${nominas.length} nominas to create`);
+    //console.log("nominas", nominas);
     
     const createdNominas = [];
     
@@ -93,8 +93,8 @@ export async function PATCH(request: Request) {
       );
     }
 
-    console.log("PATCH: Updating nomina with identifier:", rowId);
-    console.log("PATCH: Updated data:", JSON.stringify(updatedData, null, 2));
+    //console.log("PATCH: Updating nomina with identifier:", rowId);
+    //console.log("PATCH: Updated data:", JSON.stringify(updatedData, null, 2));
 
     const updatedNomina = await nominasService.updateNomina(rowId, updatedData);
     
@@ -105,7 +105,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    console.log("PATCH: Update successful, returning:", JSON.stringify(updatedNomina, null, 2));
+    //console.log("PATCH: Update successful, returning:", JSON.stringify(updatedNomina, null, 2));
 
     return NextResponse.json({ 
       success: true, 
@@ -124,7 +124,7 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const { rowId } = await request.json();
-    console.log("DELETE: Deleting nomina with identifier:", rowId);
+    //console.log("DELETE: Deleting nomina with identifier:", rowId);
     if (!rowId) {
       return NextResponse.json(
         { error: "ID de fila es requerido" },
@@ -133,7 +133,7 @@ export async function DELETE(request: Request) {
     }
 
     const success = await nominasService.deleteNomina(rowId);
-    console.log("DELETE: Success:", success);
+    //console.log("DELETE: Success:", success);
     if (!success) {
       return NextResponse.json(
         { error: "No se encontró la fila especificada" },

@@ -16,15 +16,6 @@ const dbConfig = {
   connectTimeout: parseInt(process.env.DB_CONNECTION_TIMEOUT || '30000')
 };
 
-// Log connection details (without sensitive info)
-console.log('Attempting to connect with config:', {
-  host: dbConfig.host,
-  user: dbConfig.user,
-  port: dbConfig.port,
-  database: dbConfig.database,
-  ssl: !!dbConfig.ssl
-});
-
 // Create a connection pool
 const pool = mysql.createPool(dbConfig);
 
@@ -43,31 +34,8 @@ export async function getConnection() {
 export async function executeQuery<T>(query: string, params: any[] = []): Promise<T> {
   let connection = null;
   try {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`Executing query: ${query.slice(0, 50)}${query.length > 50 ? '...' : ''}`);
-    }
     connection = await getConnection();
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Got connection, executing query now');
-    }
-    
-    // Sanitize params for logging (remove large buffers)
-    const sanitizedParams = params.map(p => {
-      if (p instanceof Buffer) return `Buffer(${p.length} bytes)`;
-      return p;
-    });
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Query params:', JSON.stringify(sanitizedParams));
-    }
-    
     const [results] = await connection.execute(query, params);
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Query executed successfully, result count:', 
-        Array.isArray(results) ? results.length : 
-        (results && typeof results === 'object' && 'affectedRows' in results) ? `${results.affectedRows} affected rows` : 
-        'unknown'
-      );
-    }
     return results as T;
   } catch (error) {
     console.error('Error executing query:', error);
@@ -82,9 +50,6 @@ export async function executeQuery<T>(query: string, params: any[] = []): Promis
   } finally {
     if (connection) {
       connection.release();
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('Database connection released');
-      }
     }
   }
 }
@@ -127,7 +92,7 @@ export async function testConnection(): Promise<boolean> {
 }
 
 // Test the connection immediately
-console.log('Testing database connection...');
+//console.log('Testing database connection...');
 testConnection()
   .then((success) => {
     if (success) {

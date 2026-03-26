@@ -13,9 +13,9 @@ export async function GET(request: Request) {
       );
     }
 
-    console.log(`Fetching nominas for empresa with RUT: ${rutEmpresa}`);
+    //console.log(`Fetching nominas for empresa with RUT: ${rutEmpresa}`);
     const nominas = await nominasService.getNominasByEmpresa(rutEmpresa);
-    console.log(`Found ${nominas.length} records for empresa ${rutEmpresa}`);
+    //console.log(`Found ${nominas.length} records for empresa ${rutEmpresa}`);
     
     // The original code used this mapping that lost information:
     // const result = nominas.map((item) => {
@@ -53,8 +53,8 @@ export async function PATCH(request: Request) {
       );
     }
 
-    console.log(`PATCH: Updating nomina with RUT: ${rut} in empresa endpoint`);
-    console.log("PATCH data:", JSON.stringify(updatedData, null, 2));
+    //console.log(`PATCH: Updating nomina with RUT: ${rut} in empresa endpoint`);
+    //console.log("PATCH data:", JSON.stringify(updatedData, null, 2));
 
     const updatedNomina = await nominasService.updateNomina(rut, updatedData);
 

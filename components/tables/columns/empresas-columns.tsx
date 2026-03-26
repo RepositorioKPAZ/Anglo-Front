@@ -327,7 +327,7 @@ export const empresasColumns: ColumnDef<User>[] = [
               },
             }),
           });
-          console.log("Response Edición Empresa: ", response);
+          //console.log("Response Edición Empresa: ", response);
           if (!response.ok) {
             const errorData = await response.json();
             setFormError(errorData.error || "Error al actualizar los datos");

@@ -2,14 +2,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import Image from "next/image";
+import { redirect } from "next/navigation";
 import multibienLogo from "@/lib/images/multibien-logo.webp";
 
 import { signInAction } from "@/app/db-auth-actions";
 import { FormMessage, Message } from "@/components/form-message";
 import { SubmitButton } from "@/components/submit-button";
+import { tipoLoginActivo } from "@/lib/services/estado-service";
 
 export default async function Login(props: { searchParams: Promise<Message> }) {
   const searchParams = await props.searchParams;
+  const tipo = await tipoLoginActivo();
+  if (tipo === "ninguno") {
+    redirect("/");
+  }
+  if (tipo === "resultados") {
+    redirect("/resultados-sign-in");
+  }
+
   return (
     <form className="flex-1 flex flex-col min-w-64">
       <div className="flex justify-start mb-4">

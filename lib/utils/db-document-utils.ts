@@ -1,4 +1,12 @@
-import { executeQuery, executeTransaction } from '@/app/api/db-connection';
+import { executeQuery } from '@/app/api/db-connection';
+
+/** Valida y parsea el ID de fila en nominabeca (solo dígitos, entero > 0). */
+export function parseNominaId(rowId: string): number | null {
+  const trimmed = rowId?.trim();
+  if (!trimmed || !/^\d+$/.test(trimmed)) return null;
+  const n = parseInt(trimmed, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
 
 export type DocumentMetadata = {
   id_doc?: number;
@@ -15,6 +23,9 @@ export type DocumentMetadata = {
 // Get all documents metadata for a specific row
 export async function getDocumentMetadata(rowId: string, recordId?: string): Promise<DocumentMetadata | null> {
   try {
+    const nominaId = parseNominaId(rowId);
+    if (nominaId === null) return null;
+
     let query = `
       SELECT 
         id_doc, 
@@ -25,21 +36,18 @@ export async function getDocumentMetadata(rowId: string, recordId?: string): Pro
         contenido_documento,
         LENGTH(contenido_documento) as fileSize
       FROM documentosajuntos
-      WHERE Ruttrabajador = ? OR (id_nomina = ? AND id_nomina IS NOT NULL)
+      WHERE id_nomina = ?
     `;
-    
-    // Convert rowId to integer for id_nomina comparison
-    const nominaId = parseInt(rowId);
-    const params = [rowId, isNaN(nominaId) ? null : nominaId];
-    
+    const params: (string | number)[] = [nominaId];
+
     // If recordId is provided, add it to the query
     if (recordId) {
       query += ` AND record_id = ?`;
       params.push(recordId);
     }
-    
-    query += ` LIMIT 1`;
-    
+
+    query += ` ORDER BY id_doc DESC LIMIT 1`;
+
     const results = await executeQuery<any[]>(query, params);
     
     if (results && results.length > 0) {
@@ -58,8 +66,10 @@ export async function getDocumentMetadata(rowId: string, recordId?: string): Pro
 
 // Get all documents for a specific row
 export async function getAllDocuments(rowId: string, recordId?: string): Promise<DocumentMetadata[]> {
-  // TODO: Change the fields, make them match the database
   try {
+    const nominaId = parseNominaId(rowId);
+    if (nominaId === null) return [];
+
     let query = `
       SELECT 
         id_doc, 
@@ -69,19 +79,16 @@ export async function getAllDocuments(rowId: string, recordId?: string): Promise
         'application/pdf' as fileType,
         LENGTH(contenido_documento) as fileSize
       FROM documentosajuntos
-      WHERE Ruttrabajador = ? OR (id_nomina = ? AND id_nomina IS NOT NULL)
+      WHERE id_nomina = ?
     `;
-    
-    // Convert rowId to integer for id_nomina comparison
-    const nominaId = parseInt(rowId);
-    const params = [rowId, isNaN(nominaId) ? null : nominaId];
-    
+    const params: (string | number)[] = [nominaId];
+
     // If recordId is provided, add it to the query
     if (recordId) {
       query += ` AND record_id = ?`;
       params.push(recordId);
     }
-    
+
     query += ` ORDER BY id_doc DESC`;
     
     const results = await executeQuery<any[]>(query, params);
@@ -137,6 +144,9 @@ export async function getDocumentById(docId: number): Promise<DocumentMetadata |
 // Get a specific document by row ID and filename
 export async function getDocumentByFileName(rowId: string, fileName: string, recordId?: string): Promise<DocumentMetadata | null> {
   try {
+    const nominaId = parseNominaId(rowId);
+    if (nominaId === null) return null;
+
     let query = `
       SELECT 
         id_doc, 
@@ -147,13 +157,10 @@ export async function getDocumentByFileName(rowId: string, fileName: string, rec
         contenido_documento,
         LENGTH(contenido_documento) as fileSize
       FROM documentosajuntos
-      WHERE (Ruttrabajador = ? OR (id_nomina = ? AND id_nomina IS NOT NULL)) AND nombre_documento = ?
+      WHERE id_nomina = ? AND nombre_documento = ?
     `;
-    
-    // Convert rowId to integer for id_nomina comparison
-    const nominaId = parseInt(rowId);
-    const params = [rowId, isNaN(nominaId) ? null : nominaId, fileName];
-    
+    const params: (string | number)[] = [nominaId, fileName];
+
     // If recordId is provided, add it to the query
     if (recordId) {
       query += ` AND record_id = ?`;
@@ -207,6 +214,11 @@ export async function saveDocument(
       throw new Error("Missing required parameters for saving document");
     }
 
+    const nominaId = parseNominaId(rowId);
+    if (nominaId === null) {
+      throw new Error("ID de nómina inválido: se requiere el ID numérico del registro en nominabeca");
+    }
+
     // Check if a document with the same filename already exists for this rowId/recordId
     const existingDoc = await getDocumentByFileName(rowId, fileName, recordId);
     if (existingDoc) {
@@ -224,11 +236,8 @@ export async function saveDocument(
         id_nomina
       ) VALUES (?, ?, ?, ?, ?)
     `;
-    // Use rutTrabajador if provided, otherwise fall back to rowId
-    const rut = rutTrabajador || rowId;
-    // Convert rowId to integer for id_nomina, or null if not a valid number
-    const nominaId = parseInt(rowId);
-    const params = [rutEmpresa, rut, fileName, fileContent, isNaN(nominaId) ? null : nominaId];
+    const rut = rutTrabajador?.trim() || "";
+    const params = [rutEmpresa, rut, fileName, fileContent, nominaId];
     
     console.log("Executing query:", query.replace(/\s+/g, ' '));
     console.log("With params:", JSON.stringify([
@@ -236,7 +245,7 @@ export async function saveDocument(
       rut,
       fileName, 
       fileContent ? "BUFFER_DATA" : null,
-      isNaN(nominaId) ? null : nominaId // id_nomina as int
+      nominaId
     ]));
     
     try {
@@ -295,11 +304,12 @@ export async function deleteDocumentById(docId: number): Promise<boolean> {
 // Delete all documents for a row
 export async function deleteDocument(rowId: string, recordId?: string): Promise<boolean> {
   try {
-    let query = 'DELETE FROM documentosajuntos WHERE Ruttrabajador = ? OR (id_nomina = ? AND id_nomina IS NOT NULL)';
-    // Convert rowId to integer for id_nomina comparison
-    const nominaId = parseInt(rowId);
-    const params = [rowId, isNaN(nominaId) ? null : nominaId];
-    
+    const nominaId = parseNominaId(rowId);
+    if (nominaId === null) return false;
+
+    let query = 'DELETE FROM documentosajuntos WHERE id_nomina = ?';
+    const params: (string | number)[] = [nominaId];
+
     // If recordId is provided, only delete documents for that specific record
     if (recordId) {
       query += ' AND record_id = ?';

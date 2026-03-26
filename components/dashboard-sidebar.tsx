@@ -16,6 +16,7 @@ import {
   Upload,
   FileUp,
   Building2,
+  ListTree,
 } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
@@ -66,7 +67,11 @@ const dashboardData = {
       url: "/dashboard/empresas",
       icon: Building2,
     },
-    // Add more dashboard-specific navigation items here
+    {
+      title: "Estados",
+      url: "/dashboard/estado",
+      icon: ListTree,
+    },
   ],
 };
 

@@ -1,7 +1,15 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
-export default function Hero() {
+type HeroProps = {
+  mostrarBotonIngreso?: boolean;
+  hrefIngreso?: string;
+};
+
+export default function Hero({
+  mostrarBotonIngreso = true,
+  hrefIngreso = "/db-sign-in",
+}: HeroProps) {
   return (
     <div className="w-full flex flex-col justify-center py-24 px-4 md:px-8 lg:px-16 bg-background text-foreground border-b border-border">
       <div className="max-w-7xl mx-auto w-full">
@@ -15,12 +23,14 @@ export default function Hero() {
           bienestar.
         </p>
 
-        <Button
-          asChild
-          className="px-8 py-3 bg-accent text-accent-foreground rounded-md font-medium hover:bg-accent/90 transition-colors"
-        >
-          <Link href="/postulaciones/empresa">Ingresar al Sistema</Link>
-        </Button>
+        {mostrarBotonIngreso ? (
+          <Button
+            asChild
+            className="px-8 py-3 bg-accent text-accent-foreground rounded-md font-medium hover:bg-accent/90 transition-colors"
+          >
+            <Link href={hrefIngreso}>Ingresar al Sistema</Link>
+          </Button>
+        ) : null}
       </div>
     </div>
   );

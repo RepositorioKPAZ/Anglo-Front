@@ -4,7 +4,12 @@ import { encodedRedirect } from "@/utils/utils";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
-import { findUserByRutInDb, findUserByIdInDb } from "@/lib/services/database-service";
+import {
+  findUserByRutInDb,
+  findUserByIdInDb,
+  findAdminByRutInDb,
+  findAdminByIdInDb,
+} from "@/lib/services/database-service";
 import { User } from "@/lib/types/user";
 
 /**
@@ -19,24 +24,26 @@ export const signInAction = async (formData: FormData) => {
   }
 
   try {
-    // Handle admin login separately
-    if (rut === "13.056.521-2" && password === "218521") {
-      console.log("Admin login");
-      const user = {
-        ID: 1,
-        Rut: "13.056.521-2",
+    // Try admin login from DB table `usuarios`
+    const admin = await findAdminByRutInDb(rut);
+    if (admin) {
+      if (admin.password !== password) {
+        return encodedRedirect("error", "/db-sign-in", "Credenciales inválidas");
+      }
+      const adminAsUser: User = {
+        ID: admin.idUsuario,
+        Rut: admin.rut,
         Empresa: "admin",
         Operacion: "admin",
-        Encargado: "admin",
-        Mail: "admin@admin.com",
-        Telefono: "1234567890",
-        Empresa_C: "admin"
+        Encargado: admin.nombre || "admin",
+        Mail: admin.email || "admin@admin.com",
+        Telefono: "",
+        Empresa_C: admin.password,
       };
-      return await createSessionAndRedirect(user);
+      return await createSessionAndRedirect(adminAsUser, "admin");
     }
 
     // Find user in database
-    console.log("Trying database login");
     const user = await findUserByRutInDb(rut);
 
     if (!user) {
@@ -48,20 +55,24 @@ export const signInAction = async (formData: FormData) => {
       return encodedRedirect("error", "/db-sign-in", "Credenciales inválidas");
     }
 
-    return await createSessionAndRedirect(user);
+    return await createSessionAndRedirect(user, "empresa");
   } catch (error) {
     console.error("Sign in error:", error);
     return encodedRedirect("error", "/db-sign-in", "Error de autenticación");
   }
 };
 
-async function createSessionAndRedirect(user: User) {
+async function createSessionAndRedirect(
+  user: User,
+  userType: "admin" | "empresa"
+) {
   // Create a JWT token
   const token = await new SignJWT({
     userId: user.ID,
     rut: user.Rut,
     empresa: user.Empresa,
-    isAdmin: user.Empresa === "admin"
+    isAdmin: userType === "admin",
+    userType,
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -108,17 +119,20 @@ export async function getAuthUser(): Promise<Omit<User, 'Empresa_C'> | null> {
     
     const userId = verified.payload.userId as number;
     const isAdmin = verified.payload.empresa === "admin";
+    const userType = (verified.payload.userType as string | undefined) || "empresa";
     
-    // Handle admin user case
-    if (isAdmin) {
+    // Handle admin user case from table `usuarios`
+    if (isAdmin || userType === "admin") {
+      const admin = await findAdminByIdInDb(userId);
+      if (!admin) return null;
       return {
-        ID: 1,
-        Rut: "admin",
+        ID: admin.idUsuario,
+        Rut: admin.rut,
         Empresa: "admin",
         Operacion: "admin",
-        Encargado: "admin",
-        Mail: "admin@admin.com",
-        Telefono: "1234567890"
+        Encargado: admin.nombre || "admin",
+        Mail: admin.email || "admin@admin.com",
+        Telefono: ""
       };
     }
     

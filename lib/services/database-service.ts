@@ -2,6 +2,16 @@ import { executeQuery } from '../../app/api/db-connection';
 import { User, DatabaseUser, DatabaseNomina } from '@/lib/types/user';
 import { db } from "@/lib/db";
 
+export interface AdminUser {
+  idUsuario: number;
+  rut: string;
+  nombre: string;
+  email: string | null;
+  password: string;
+  rol: string;
+  activo: number | boolean;
+}
+
 class DatabaseService {
   // User operations
   async findUserByRut(rut: string): Promise<DatabaseUser | null> {
@@ -77,3 +87,29 @@ export async function findUserByIdInDb(id: number): Promise<User | null> {
     return null;
   }
 } 
+
+export async function findAdminByRutInDb(rut: string): Promise<AdminUser | null> {
+  try {
+    const result = await db.query<AdminUser[]>(
+      "SELECT * FROM usuarios WHERE rut = ? AND activo = 1 LIMIT 1",
+      [rut]
+    );
+    return result[0] || null;
+  } catch (error) {
+    console.error("Error finding admin by RUT:", error);
+    return null;
+  }
+}
+
+export async function findAdminByIdInDb(idUsuario: number): Promise<AdminUser | null> {
+  try {
+    const result = await db.query<AdminUser[]>(
+      "SELECT * FROM usuarios WHERE idUsuario = ? AND activo = 1 LIMIT 1",
+      [idUsuario]
+    );
+    return result[0] || null;
+  } catch (error) {
+    console.error("Error finding admin by ID:", error);
+    return null;
+  }
+}

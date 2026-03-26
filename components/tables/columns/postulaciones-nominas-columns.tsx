@@ -65,11 +65,15 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
       return <div className="text-center">Documento</div>;
     },
     cell: ({ row }: { row: Row<NominaRow> }) => {
-      const rowId = row.original.Rut as string;
+      const nominaId =
+        row.original.ID !== undefined && row.original.ID !== null
+          ? String(row.original.ID)
+          : "";
       return (
         <DocumentStatusCell
-          rowId={rowId}
+          rowId={nominaId}
           rutEmpresa={row.original["Rut Empresa"]}
+          rutTrabajador={row.original.Rut}
           isAdmin={true}
         />
       );
@@ -159,7 +163,7 @@ export const postulacionesNominasColumns: ColumnDef<NominaRow>[] = [
             );
           }
 
-          console.log("editedData Postulaciones", transformedData);
+          //console.log("editedData Postulaciones", transformedData);
           const response = await fetch("/api/postulaciones/nominas", {
             method: "PATCH",
             headers: {

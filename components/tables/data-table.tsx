@@ -385,7 +385,7 @@ export function DataTable<TData, TValue>({
       });
 
       const result = await response.json();
-      console.log("Resultado Crear Empresa", result);
+      //console.log("Resultado Crear Empresa", result);
       if (!response.ok) {
         const errorMessage = result.error || "Error al agregar la empresa";
         setFormError(errorMessage);

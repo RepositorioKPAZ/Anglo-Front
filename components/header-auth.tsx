@@ -3,7 +3,17 @@ import Link from "next/link";
 import { Button } from "./ui/button";
 import { getAuthUser } from "@/app/db-auth-actions";
 
-export default async function AuthButton() {
+type HeaderAuthProps = {
+  /** Si el visitante no tiene sesión, ¿mostrar el botón Ingresar? (p. ej. según ventana en tabla estado). Por defecto true. */
+  mostrarIngresoInvitado?: boolean;
+  /** Destino del botón Ingresar (postulación vs resultados). Por defecto login empresa. */
+  hrefIngreso?: string;
+};
+
+export default async function AuthButton({
+  mostrarIngresoInvitado = true,
+  hrefIngreso = "/db-sign-in",
+}: HeaderAuthProps) {
   const user = await getAuthUser();
 
   return user ? (
@@ -21,9 +31,11 @@ export default async function AuthButton() {
     </div>
   ) : (
     <div className="flex gap-2">
-      <Button asChild size="sm" variant={"outline"}>
-        <Link href="/db-sign-in">Ingresar</Link>
-      </Button>
+      {mostrarIngresoInvitado ? (
+        <Button asChild size="sm" variant={"outline"}>
+          <Link href={hrefIngreso}>Ingresar</Link>
+        </Button>
+      ) : null}
       {/* <Button asChild size="sm" variant={"default"}>
         <Link href="/sign-up">Registrarse</Link>
       </Button> */}
